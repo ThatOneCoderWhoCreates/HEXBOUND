@@ -10,6 +10,8 @@ Instructions for Claude (and any other AI assistant) working on HEXBOUND. Read t
 - Primary target: Windows PC (assumption, see `GDD.md` open questions).
 - Project root: `C:\Users\tanma\HEXBOUND\`.
 - All project-owned content lives under `Assets/_Project/`. Store or third-party assets go in `Assets/ThirdParty/`.
+- Fighter models are loaded at runtime from `Assets/_Project/Resources/Fighters/<Weapon>.glb` (Sword, Staff, Wand). Record the source and license of every third-party asset in `CREDITS.md`.
+- Pressing Play in any scene starts the game from `Assets/_Project/Scenes/Core/Main.unity` (see `Editor/HexboundEditorSetup.cs`).
 
 ## Hard rules
 
@@ -47,12 +49,16 @@ Instructions for Claude (and any other AI assistant) working on HEXBOUND. Read t
 - Use `[SerializeField] private` instead of public fields on MonoBehaviours.
 - No `GameObject.Find`, `FindObjectOfType` or string-based lookups in runtime code.
 - No allocations in per-tick code paths (simulation tick, rollback, input sampling).
-- Prefer ScriptableObjects for authored data (characters, moves, arenas, config). Simulation uses baked, immutable runtime copies of that data.
+- Fighter, move and projectile data live in C# content files in `Simulation/Characters/Content/`, using integer thousandths (`M(1500)` = 1.5). Rules live in `Simulation/Match/MatchRules.cs`. After changing gameplay numbers, run the EditMode tests.
 - American English in code, comments and docs. Expand an abbreviation the first time it appears in a doc.
 
 ## Folder map
 
 See `ARCHITECTURE.md` section "Folder structure". Put new files in the matching folder. If no folder fits, propose one before creating it.
+
+## Compile checks without Unity
+
+Unity's engine and package assemblies can be copied into `.unityrefs/` (ignored by Git) so every HEXBOUND assembly can be compiled with the .NET SDK using its `.asmdef` references. Simulation and netcode tests can also run outside Unity. Do this before handing code to the user, then still ask the user to confirm the Unity Console is clean.
 
 ## Workflow
 

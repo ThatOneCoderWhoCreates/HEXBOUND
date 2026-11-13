@@ -1,6 +1,6 @@
 # HEXBOUND: Technical Architecture
 
-Status: v0.2 (2026-11-13). Decisions marked **Approved** are final unless revisited. Anything marked **Proposed** is not final.
+Status: v0.3 (2026-11-13), updated after the M1 prototype build. Decisions marked **Approved** are final unless revisited. Anything marked **Proposed** is not final.
 
 ## 1. Goals
 
@@ -64,8 +64,23 @@ Dependency rules:
 - **Movement (Approved: free 3D movement):** fighters move on the arena floor plane (X and Z) in any direction and rotate to face their movement direction. Attacks can snap facing toward the opponent within a set angle and range (soft targeting). Vertical movement (jumps, launches) uses the Y axis with simple custom gravity.
 - **Input frame:** the simulation never sees the camera. The Input layer converts stick or WASD input into a world-space direction using the local camera's yaw, then quantizes it into the InputFrame (proposed: 8-bit angle, 256 directions, plus a 2-bit magnitude for walk or run, plus button bits). Both peers receive identical integer data, so movement stays deterministic.
 - **Character logic:** a state machine per fighter (Idle, Walk, Dash, Attack, Block, Hitstun, Blockstun, Knockdown, and so on) driven by frame data.
-- **Static data:** characters, moves and arenas are authored as ScriptableObjects in `Data/` and baked at load time into immutable fixed-point runtime data that the simulation reads.
+- **Static data (as built):** fighters, moves and projectiles are defined in C# content files in `Simulation/Characters/Content/` (`SwordFighter.cs`, `StaffFighter.cs`, `WandFighter.cs`, `CommonMoves.cs`), built once in a fixed order by `GameContent`. Values use integer thousandths (`M(1500)` is 1.5), so no floats are involved. `GameContent.ContentHash` covers all numbers; online peers refuse to play if their hashes differ. Moving this data to ScriptableObjects is possible later, but code keeps it deterministic and easy to review.
 - **Events:** the simulation emits events (hit landed, block, round end) tagged with the tick they happened on. Presentation uses these to trigger VFX and audio.
+
+### Where to change numbers
+
+| What | File |
+| --- | --- |
+| Damage, frame data, hitboxes, costs, cooldowns per fighter | `Simulation/Characters/Content/<Fighter>.cs` |
+| Dodge, grab, recharge (shared) | `Simulation/Characters/Content/CommonMoves.cs` |
+| Magic max, round time, parry window, chip damage, combo scaling, flight | `Simulation/Match/MatchRules.cs` (`GameConfig`) |
+| Arena size | `Simulation/Collision/Arena.cs` (must match the visuals in `Presentation/ArenaView.cs`, which reads it) |
+
+Units: time in ticks (60 per second), distance in units (about 1 meter), speed in units per tick.
+
+### Simulation files
+
+`GameSimulation.Tick` runs, in order: both fighters' state machines and physics (`FighterLogic`), push-apart (`FighterLogic.Separate`), projectiles (`ProjectileLogic`), hit detection and resolution with trades (`CombatResolver`), then round flow (`MatchLogic`).
 
 ## 5. Netcode (Option A)
 
@@ -80,21 +95,32 @@ Dependency rules:
 - **Desync handling:** on checksum mismatch, log both states for debugging and end the match cleanly.
 - **Trust:** peer-to-peer means a modified client can cheat. Acceptable for non-ranked play. Ranked play is out of scope.
 
+### As built
+
+- `Netcode/Rollback/RollbackSession.cs`: prediction, 128-tick snapshot ring, maximum prediction 8 ticks, default input delay 2 ticks (`GameSettings.InputDelay`), checksum every 30 confirmed ticks, frame-advantage time sync.
+- `Netcode/Sessions/NetMatch.cs`: handshake (protocol version and content hash), character select, start (host sends seed and picks), pings, timeouts, return to select, leave. The host is always player 0.
+- `Netcode/Protocol/Packets.cs`: packet types and little-endian reader and writer.
+- `Netcode/Transport/UnityTransportLink.cs`: Unity Transport driver, reliable pipeline for menu messages, unreliable for inputs. Direct IP on port 7777 or Relay (DTLS).
+- `Netcode/Sessions/OnlineServices.cs`: anonymous sign-in and Relay allocations; the Relay join code is the room code.
+- `Netcode/Transport/SimulatedNetwork.cs`: in-memory network with latency, jitter and loss, used by tests.
+
 ## 6. Presentation
 
 - **Views:** each fighter has a view object that copies position and rotation from `GameState` every render frame (fixed-point converted to float only here).
-- **Animation:** animation is sampled from the simulation's current move and frame index (using Unity's Playables API), not driven by Animator state transitions. After a rollback, the pose snaps to the correct frame.
+- **Animation (as built):** procedural. `FighterAnimator` builds a pose every frame from the fighter's state, move and move frame (limb directions, spine bend, whole-body tilt), blends toward it, and applies it through `PoseRig`, which aims each limb at a direction. Because poses come from the state, they are always right after a rollback. Bones are found by name, so imported rigs (3ds Max Biped, Character Creator, Mixamo) work without setup. Replacing this with real animation clips later should keep the rule that the pose is chosen from simulation state.
+- **Models:** `FighterRigBuilder` loads `Resources/Fighters/<Weapon>` (Sword, Staff, Wand). It turns the model to face +Z (from the arm positions), scales it to the fighter's height, and puts its feet on the floor. If no model exists, or bones are missing, it builds a placeholder body from primitives. `.glb` files import through the glTFast package.
 - **VFX and audio:** triggered from simulation events. Each event has a unique key (tick + type + fighter), so a rollback that replays the same event does not play it twice, and an event that is rolled back can be cancelled.
-- **Camera:** Cinemachine 3 orbital third-person camera following the local player's fighter, rotated with the mouse or right stick (Genshin Impact style). Camera state is local only and is never sent over the network or rolled back.
+- **Camera (as built):** a small custom orbit camera (`Presentation/Camera/ThirdPersonCamera.cs`) behind the local fighter, rotated with the mouse or right stick (Genshin Impact style), with lock-on framing and screen shake. Cinemachine is installed but not used yet. Camera state is local only and is never sent over the network or rolled back.
 - **Rendering:** URP with the existing `PC_RPAsset` for Windows. The existing `Mobile_RPAsset` is left in place but unused.
 
-## 7. Scenes and flow
+## 7. Scenes and flow (as built)
 
-- `Scenes/Core/Bootstrap`: first scene in the build. Creates long-lived services (settings, audio, sessions) and loads the menu.
-- `Scenes/Core/MainMenu`: menus, character select, online room create or join.
-- `Scenes/Arenas/<ArenaName>`: loaded additively for a match.
-- `Scenes/Dev/Sandbox`: test scene for developers, not shipped.
-- The template `Assets/Scenes/SampleScene.unity` is left untouched.
+- One scene: `Scenes/Core/Main.unity`, containing a single GameObject with `HexboundGame` (`Runtime/App`). Everything else (camera, arena, lights, post-processing, UI, audio) is created in code.
+- `Editor/HexboundEditorSetup.cs` creates that scene the first time the project loads, puts it first in Build Settings, and sets it as the Play Mode start scene, so pressing Play in any scene starts the game. Menu: HEXBOUND > Open Main Scene, Recreate Main Scene, Play From Main Scene (toggle).
+- `HexboundGame` runs the screens (menu, character select, online lobby, match) and the fixed 60 Hz loop: offline matches tick `GameSimulation` directly with the local player and `TrainingBot`; online matches go through `NetMatch`.
+- The template `Assets/Scenes/SampleScene.unity` is untouched.
+- UI is uGUI built in code (`UI/UIFactory.cs`), using Unity's built-in font, so no UI assets or TextMesh Pro setup are needed.
+- Sounds are synthesized in code (`Presentation/Audio/SfxPlayer.cs`) as placeholders.
 
 ## 8. Assemblies (created 2026-11-13)
 
@@ -103,12 +129,12 @@ Dependency rules:
 | `HEXBOUND.Simulation` | `Scripts/Runtime/Simulation` | none (`noEngineReferences: true`) |
 | `HEXBOUND.Core` | `Scripts/Runtime/Core` | none |
 | `HEXBOUND.Input` | `Scripts/Runtime/Input` | Simulation, Core, `Unity.InputSystem` |
-| `HEXBOUND.Netcode` | `Scripts/Runtime/Netcode` | Simulation, Core, `Unity.Networking.Transport`, `Unity.Collections`, `Unity.Services.Core`, `Unity.Services.Authentication`, `Unity.Services.Multiplayer` |
-| `HEXBOUND.Presentation` | `Scripts/Runtime/Presentation` | Simulation, Core, `Unity.Cinemachine` |
-| `HEXBOUND.UI` | `Scripts/Runtime/UI` | Simulation, Core, `Unity.TextMeshPro`, `UnityEngine.UI` |
-| `HEXBOUND.App` | `Scripts/Runtime/App` | all of the above, `Unity.InputSystem` |
+| `HEXBOUND.Netcode` | `Scripts/Runtime/Netcode` | Simulation, Core, `Unity.Networking.Transport`, `Unity.Collections`, `Unity.Burst`, `Unity.Mathematics`, `Unity.Services.Core`, `Unity.Services.Authentication`, `Unity.Services.Multiplayer` |
+| `HEXBOUND.Presentation` | `Scripts/Runtime/Presentation` | Simulation, Core, `Unity.RenderPipelines.Core.Runtime`, `Unity.RenderPipelines.Universal.Runtime` |
+| `HEXBOUND.UI` | `Scripts/Runtime/UI` | Simulation, Core, `UnityEngine.UI`, `Unity.InputSystem` |
+| `HEXBOUND.App` | `Scripts/Runtime/App` | all of the above, `Unity.InputSystem`, `UnityEngine.UI`, URP runtime, `Unity.Networking.Transport`, `Unity.Collections` |
 | `HEXBOUND.Editor` | `Scripts/Editor` | all runtime assemblies, editor only |
-| `HEXBOUND.Tests.EditMode` | `Scripts/Tests/EditMode` | Simulation, Core, test framework (editor only) |
+| `HEXBOUND.Tests.EditMode` | `Scripts/Tests/EditMode` | Simulation, Core, Netcode, test framework (editor only) |
 | `HEXBOUND.Tests.PlayMode` | `Scripts/Tests/PlayMode` | all runtime assemblies, test framework |
 
 Test assemblies only compile when the Test Framework is present (`UNITY_INCLUDE_TESTS`), so they are never included in player builds.
@@ -196,6 +222,10 @@ Each empty folder contains a `.gitkeep` file so it survives version control. Uni
 
 ## 10. Testing strategy
 
+As built: `Tests/EditMode/SimulationTests.cs` (fixed-point math, input packing, determinism for all 9 matchups, snapshot replay, rollback over a simulated 100 ms / 8% loss network). Run in Unity: Window > General > Test Runner > EditMode > Run All.
+
+Compile checks outside Unity: Unity's engine and package assemblies can be copied to `.unityrefs/` (ignored by Git) and every HEXBOUND assembly compiled against them with the .NET SDK, using each `.asmdef`'s references. This catches most errors before opening Unity. It does not replace testing in the Editor.
+
 - **EditMode determinism tests:** run the same input sequence twice and compare checksums every tick. Save a snapshot, restore it, re-run, compare.
 - **EditMode rules tests:** frame data, damage, round and timer rules.
 - **Rollback tests:** simulate artificial delay and packet loss in code, check both peers end with identical checksums.
@@ -224,6 +254,7 @@ Each empty folder contains a `.gitkeep` file so it survives version control. Uni
 | `com.unity.services.multiplayer` (Multiplayer Services) | 1.1.8 | Relay, Lobby, sessions, matchmaking. Pulls in Authentication. Replaces the deprecated standalone Relay and Lobby packages. |
 | `com.unity.cinemachine` (Cinemachine) | 3.1.5 | Third-person camera |
 | `com.unity.multiplayer.playmode` (Multiplayer Play Mode) | 1.6.3 | Run two players in one editor for online testing |
+| `com.unity.cloud.gltfast` (Unity glTFast) | 6.9.1 | Imports the `.glb` fighter models |
 
 ### Later
 

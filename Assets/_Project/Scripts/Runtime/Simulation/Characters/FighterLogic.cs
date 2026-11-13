@@ -1,0 +1,705 @@
+namespace HEXBOUND.Simulation
+{
+    /// <summary>Per-tick fighter update: input, state machine, moves and physics.</summary>
+    public static class FighterLogic
+    {
+        private static readonly Fix FlightBlend = Fix.Milli(250);
+        private static readonly Fix AirControl = Fix.Milli(120);
+        private static readonly Fix FloorSnapTolerance = Fix.Milli(-250);
+        private static readonly Fix EdgeMargin = Fix.Milli(300);
+        private static readonly Fix VoidCatchHeight = Fix.FromInt(-1);
+
+        public static void ResetForRound(ref FighterState f, int index)
+        {
+            CharacterDef c = GameContent.GetCharacter(f.CharacterId);
+            InputButtons prev = f.PrevButtons;
+            byte charId = f.CharacterId;
+            f = default(FighterState);
+            f.CharacterId = charId;
+            f.PrevButtons = prev;
+            f.Action = FighterAction.Idle;
+            f.MoveId = -1;
+            f.Position = index == 0 ? Arena.Spawn0 : Arena.Spawn1;
+            f.Facing = index == 0 ? 0 : FixMath.HalfTurn;
+            f.Grounded = true;
+            f.Health = c.MaxHealth;
+            f.Magic = GameConfig.StartMagic;
+        }
+
+        public static bool IsFlying(ref FighterState f)
+        {
+            return f.Buff == BuffId.Levitate && (f.Action == FighterAction.Air || f.Action == FighterAction.Attack);
+        }
+
+        public static bool IsInvulnerable(ref FighterState f)
+        {
+            if (f.InvulnTicks > 0) return true;
+            if (f.Action == FighterAction.Knockdown || f.Action == FighterAction.GetUp) return true;
+            if (f.Action == FighterAction.KO || f.Action == FighterAction.RingOut) return true;
+            if (f.Action == FighterAction.Attack)
+            {
+                MoveDef m = GameContent.GetMove(f.MoveId);
+                if (m != null && m.InvulnStart >= 0 && f.MoveTick >= m.InvulnStart && f.MoveTick <= m.InvulnEnd) return true;
+            }
+            return false;
+        }
+
+        /// <summary>States where the player's own movement must not carry them off the arena edge.</summary>
+        private static bool IsVoluntary(FighterAction action)
+        {
+            switch (action)
+            {
+                case FighterAction.Idle:
+                case FighterAction.Move:
+                case FighterAction.Air:
+                case FighterAction.Attack:
+                case FighterAction.Block:
+                case FighterAction.BlockStun:
+                case FighterAction.Landing:
+                case FighterAction.Parried:
+                case FighterAction.GuardBroken:
+                case FighterAction.GetUp:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static void Step(GameState s, int index, InputFrame input, ref FighterState opponentAtStart, EventBuffer ev)
+        {
+            ref FighterState f = ref s.Fighters[index];
+            CharacterDef c = GameContent.GetCharacter(f.CharacterId);
+
+            InputButtons pressed = input.Buttons & ~f.PrevButtons;
+            f.PrevButtons = input.Buttons;
+
+            if ((pressed & InputButtons.LockOn) != 0) f.LockOn = !f.LockOn;
+            if (f.LockOn)
+            {
+                FixVec3 toOpp = (opponentAtStart.Position - f.Position).Horizontal();
+                if (toOpp.LengthSquared() > GameConfig.LockOnRange * GameConfig.LockOnRange) f.LockOn = false;
+            }
+
+            InputButtons action = PickAction(pressed);
+            if (action != InputButtons.None)
+            {
+                f.BufferedButton = action;
+                f.BufferTicks = GameConfig.InputBufferTicks;
+            }
+            else if (f.BufferTicks > 0)
+            {
+                f.BufferTicks--;
+                if (f.BufferTicks == 0) f.BufferedButton = InputButtons.None;
+            }
+
+            TickTimers(ref f, s, index, ev);
+
+            if (f.HitStop > 0)
+            {
+                f.HitStop--;
+                return;
+            }
+
+            f.ActionTicks++;
+            FixVec3 previous = f.Position;
+
+            switch (f.Action)
+            {
+                case FighterAction.Idle:
+                case FighterAction.Move:
+                case FighterAction.Block:
+                    GroundActionable(s, index, ref f, c, input, ref opponentAtStart, ev);
+                    break;
+                case FighterAction.Air:
+                    AirActionable(s, index, ref f, c, input, ref opponentAtStart, ev);
+                    break;
+                case FighterAction.Attack:
+                    ProcessMove(s, index, ref f, c, input, ref opponentAtStart, ev);
+                    break;
+                case FighterAction.HitStun:
+                case FighterAction.BlockStun:
+                case FighterAction.GuardBroken:
+                case FighterAction.Parried:
+                case FighterAction.Landing:
+                case FighterAction.GetUp:
+                    ProcessStun(s, index, ref f, c, input, ref opponentAtStart, ev);
+                    break;
+                case FighterAction.Knockdown:
+                    ApplyGroundFriction(ref f);
+                    f.StunTicks--;
+                    if (f.StunTicks <= 0)
+                    {
+                        SetAction(ref f, FighterAction.GetUp);
+                        f.StunTicks = GameConfig.GetUpTicks;
+                        f.InvulnTicks = GameConfig.GetUpInvuln;
+                    }
+                    break;
+                case FighterAction.Launched:
+                    f.Velocity.X = f.Velocity.X * GameConfig.AirFriction;
+                    f.Velocity.Z = f.Velocity.Z * GameConfig.AirFriction;
+                    break;
+                case FighterAction.KO:
+                    if (f.Grounded) ApplyGroundFriction(ref f);
+                    break;
+                case FighterAction.RingOut:
+                case FighterAction.Victory:
+                    if (f.Grounded) ApplyGroundFriction(ref f);
+                    break;
+            }
+
+            Integrate(s, index, ref f, c, input, previous, ev);
+        }
+
+        private static InputButtons PickAction(InputButtons pressed)
+        {
+            if ((pressed & InputButtons.Ultimate) != 0) return InputButtons.Ultimate;
+            if ((pressed & InputButtons.Skill2) != 0) return InputButtons.Skill2;
+            if ((pressed & InputButtons.Skill1) != 0) return InputButtons.Skill1;
+            if ((pressed & InputButtons.Grab) != 0) return InputButtons.Grab;
+            if ((pressed & InputButtons.Heavy) != 0) return InputButtons.Heavy;
+            if ((pressed & InputButtons.Light) != 0) return InputButtons.Light;
+            if ((pressed & InputButtons.Dodge) != 0) return InputButtons.Dodge;
+            if ((pressed & InputButtons.Jump) != 0) return InputButtons.Jump;
+            if ((pressed & InputButtons.Recharge) != 0) return InputButtons.Recharge;
+            return InputButtons.None;
+        }
+
+        private static void TickTimers(ref FighterState f, GameState s, int index, EventBuffer ev)
+        {
+            if (f.CooldownSkill1 > 0) f.CooldownSkill1--;
+            if (f.CooldownSkill2 > 0) f.CooldownSkill2--;
+            if (f.CooldownUltimate > 0) f.CooldownUltimate--;
+            if (f.CooldownRecharge > 0) f.CooldownRecharge--;
+            if (f.CooldownDodge > 0) f.CooldownDodge--;
+            if (f.InvulnTicks > 0) f.InvulnTicks--;
+            if (f.RehitTimer > 0) f.RehitTimer--;
+            if (f.Buff != BuffId.None)
+            {
+                f.BuffTicks--;
+                if (f.BuffTicks <= 0)
+                {
+                    if (ev != null) ev.Add(s.Tick, SimEventType.BuffEnd, index, (int)f.Buff, f.Position);
+                    f.Buff = BuffId.None;
+                    f.BuffTicks = 0;
+                }
+            }
+        }
+
+        private static void SetAction(ref FighterState f, FighterAction action)
+        {
+            f.Action = action;
+            f.ActionTicks = 0;
+        }
+
+        private static void ApplyGroundFriction(ref FighterState f)
+        {
+            f.Velocity.X = f.Velocity.X * GameConfig.GroundFriction;
+            f.Velocity.Z = f.Velocity.Z * GameConfig.GroundFriction;
+        }
+
+        private static int AngleTo(ref FighterState f, ref FighterState target)
+        {
+            return (target.Position - f.Position).ToAngle();
+        }
+
+        private static void GroundActionable(GameState s, int index, ref FighterState f, CharacterDef c, InputFrame input, ref FighterState opp, EventBuffer ev)
+        {
+            if (TryStartAction(s, index, ref f, c, input, ref opp, ev, false)) return;
+
+            bool blockHeld = input.Held(InputButtons.Block);
+            if (blockHeld)
+            {
+                if (f.Action != FighterAction.Block)
+                {
+                    SetAction(ref f, FighterAction.Block);
+                    f.BlockTicks = 0;
+                }
+                else
+                {
+                    f.BlockTicks++;
+                }
+                f.Facing = FixMath.RotateTowards(f.Facing, AngleTo(ref f, ref opp), GameConfig.TurnSpeed);
+                ApplyGroundFriction(ref f);
+                return;
+            }
+
+            if (input.HasMove)
+            {
+                int dir = input.MoveAngleFull;
+                Fix speed = c.MoveSpeed;
+                if (f.Buff == BuffId.TwinBlades) speed = speed * c.BuffSpeedScale;
+                FixVec3 v = FixVec3.FromAngle(dir) * speed;
+                f.Velocity.X = v.X;
+                f.Velocity.Z = v.Z;
+                int faceTarget = f.LockOn ? AngleTo(ref f, ref opp) : dir;
+                f.Facing = FixMath.RotateTowards(f.Facing, faceTarget, GameConfig.TurnSpeed);
+                if (f.Action != FighterAction.Move) SetAction(ref f, FighterAction.Move);
+            }
+            else
+            {
+                f.Velocity.X = Fix.Zero;
+                f.Velocity.Z = Fix.Zero;
+                if (f.LockOn) f.Facing = FixMath.RotateTowards(f.Facing, AngleTo(ref f, ref opp), GameConfig.TurnSpeed);
+                if (f.Action != FighterAction.Idle) SetAction(ref f, FighterAction.Idle);
+            }
+        }
+
+        private static void AirActionable(GameState s, int index, ref FighterState f, CharacterDef c, InputFrame input, ref FighterState opp, EventBuffer ev)
+        {
+            if (TryStartAction(s, index, ref f, c, input, ref opp, ev, false)) return;
+
+            bool flying = f.Buff == BuffId.Levitate;
+            if (flying)
+            {
+                FixVec3 target = input.HasMove ? FixVec3.FromAngle(input.MoveAngleFull) * GameConfig.FlightSpeed : FixVec3.Zero;
+                f.Velocity.X = f.Velocity.X + (target.X - f.Velocity.X) * FlightBlend;
+                f.Velocity.Z = f.Velocity.Z + (target.Z - f.Velocity.Z) * FlightBlend;
+                FlightVertical(ref f, input);
+            }
+            else if (input.HasMove)
+            {
+                FixVec3 target = FixVec3.FromAngle(input.MoveAngleFull) * c.AirSpeed;
+                f.Velocity.X = f.Velocity.X + (target.X - f.Velocity.X) * AirControl;
+                f.Velocity.Z = f.Velocity.Z + (target.Z - f.Velocity.Z) * AirControl;
+            }
+
+            if (f.LockOn) f.Facing = FixMath.RotateTowards(f.Facing, AngleTo(ref f, ref opp), GameConfig.TurnSpeed);
+            else if (input.HasMove) f.Facing = FixMath.RotateTowards(f.Facing, input.MoveAngleFull, GameConfig.TurnSpeed);
+        }
+
+        private static void FlightVertical(ref FighterState f, InputFrame input)
+        {
+            if (f.Position.Y < GameConfig.FlightMinHeight)
+            {
+                f.Velocity.Y = GameConfig.FlightVerticalSpeed;
+            }
+            else if (input.Held(InputButtons.Jump) && f.Position.Y < GameConfig.FlightMaxHeight)
+            {
+                f.Velocity.Y = GameConfig.FlightVerticalSpeed;
+            }
+            else if (input.Held(InputButtons.Block) && f.Position.Y > GameConfig.FlightMinHeight)
+            {
+                f.Velocity.Y = -GameConfig.FlightVerticalSpeed;
+            }
+            else
+            {
+                f.Velocity.Y = Fix.Zero;
+            }
+        }
+
+        private static void ProcessStun(GameState s, int index, ref FighterState f, CharacterDef c, InputFrame input, ref FighterState opp, EventBuffer ev)
+        {
+            if (f.Grounded) ApplyGroundFriction(ref f);
+            f.StunTicks--;
+            if (f.StunTicks > 0) return;
+
+            FighterAction previous = f.Action;
+            f.ComboCount = 0;
+            f.JuggleCount = 0;
+            f.ComboDamage = 0;
+            if (!f.Grounded)
+            {
+                SetAction(ref f, FighterAction.Air);
+                return;
+            }
+            if (previous == FighterAction.BlockStun && input.Held(InputButtons.Block))
+            {
+                SetAction(ref f, FighterAction.Block);
+                // Returning to block after blockstun does not open a new parry window.
+                f.BlockTicks = GameConfig.ParryWindow + 1;
+                return;
+            }
+            SetAction(ref f, FighterAction.Idle);
+            GroundActionable(s, index, ref f, c, input, ref opp, ev);
+        }
+
+        /// <summary>Tries to start the buffered action. Returns true if a move or jump started.</summary>
+        private static bool TryStartAction(GameState s, int index, ref FighterState f, CharacterDef c, InputFrame input, ref FighterState opp, EventBuffer ev, bool fromCancel)
+        {
+            InputButtons button = f.BufferedButton;
+            if (button == InputButtons.None) return false;
+
+            bool flying = f.Buff == BuffId.Levitate;
+            bool air = !f.Grounded || flying;
+            bool buffed = f.Buff != BuffId.None && f.Buff == c.UltimateBuff;
+            MoveDef move = null;
+            int comboStep = 0;
+
+            switch (button)
+            {
+                case InputButtons.Ultimate:
+                    move = c.Ultimate;
+                    break;
+                case InputButtons.Skill1:
+                    move = c.Skill1;
+                    break;
+                case InputButtons.Skill2:
+                    move = c.Skill2;
+                    break;
+                case InputButtons.Grab:
+                    if (air) return false;
+                    move = c.Grab;
+                    break;
+                case InputButtons.Heavy:
+                    if (air) move = buffed && c.BuffAirHeavy != null ? c.BuffAirHeavy : c.AirHeavy;
+                    else move = buffed && c.BuffHeavy != null ? c.BuffHeavy : c.Heavy;
+                    break;
+                case InputButtons.Light:
+                    if (air)
+                    {
+                        move = buffed && c.BuffAirLight != null ? c.BuffAirLight : c.AirLight;
+                    }
+                    else
+                    {
+                        MoveDef[] chain = buffed && c.BuffLightChain != null ? c.BuffLightChain : c.LightChain;
+                        if (fromCancel && f.Action == FighterAction.Attack && f.ComboStep < chain.Length && chain[f.ComboStep].Id == f.MoveId)
+                        {
+                            comboStep = f.ComboStep + 1;
+                            if (comboStep >= chain.Length) return false;
+                        }
+                        move = chain[comboStep];
+                    }
+                    break;
+                case InputButtons.Dodge:
+                    if (f.CooldownDodge > 0) return false;
+                    if (air)
+                    {
+                        if (f.AirDashUsed && !flying) return false;
+                        move = c.AirDash;
+                    }
+                    else
+                    {
+                        move = c.Dodge;
+                    }
+                    break;
+                case InputButtons.Jump:
+                    if (air) return false;
+                    ConsumeBuffer(ref f);
+                    f.Velocity.Y = c.JumpVelocity;
+                    f.Grounded = false;
+                    f.MoveId = -1;
+                    SetAction(ref f, FighterAction.Air);
+                    if (ev != null) ev.Add(s.Tick, SimEventType.Jump, index, 0, f.Position);
+                    return true;
+                case InputButtons.Recharge:
+                    if (f.CooldownRecharge > 0 || f.Magic >= GameConfig.MaxMagic) return false;
+                    move = c.Recharge;
+                    break;
+            }
+
+            if (move == null) return false;
+            if (air && !move.UsableInAir) return false;
+            if (!air && !move.UsableOnGround) return false;
+            if (!CooldownReady(ref f, move)) return false;
+
+            bool infinite = s.Setup.InfiniteMagic;
+            if (!infinite && f.Magic < move.MagicCost)
+            {
+                ConsumeBuffer(ref f);
+                if (ev != null) ev.Add(s.Tick, SimEventType.NotEnoughMagic, index, move.Id, f.Position);
+                return false;
+            }
+
+            ConsumeBuffer(ref f);
+            if (!infinite) f.Magic -= move.MagicCost;
+            if (!infinite) SetCooldown(ref f, move);
+            if (air && move == c.AirDash && !flying) f.AirDashUsed = true;
+            StartMove(s, index, ref f, c, move, comboStep, input, ref opp, ev);
+            return true;
+        }
+
+        private static void ConsumeBuffer(ref FighterState f)
+        {
+            f.BufferedButton = InputButtons.None;
+            f.BufferTicks = 0;
+        }
+
+        private static bool CooldownReady(ref FighterState f, MoveDef move)
+        {
+            switch (move.Slot)
+            {
+                case CooldownSlot.Skill1: return f.CooldownSkill1 <= 0;
+                case CooldownSlot.Skill2: return f.CooldownSkill2 <= 0;
+                case CooldownSlot.Ultimate: return f.CooldownUltimate <= 0;
+                case CooldownSlot.Recharge: return f.CooldownRecharge <= 0;
+                case CooldownSlot.Dodge: return f.CooldownDodge <= 0;
+                default: return true;
+            }
+        }
+
+        private static void SetCooldown(ref FighterState f, MoveDef move)
+        {
+            switch (move.Slot)
+            {
+                case CooldownSlot.Skill1: f.CooldownSkill1 = move.Cooldown; break;
+                case CooldownSlot.Skill2: f.CooldownSkill2 = move.Cooldown; break;
+                case CooldownSlot.Ultimate: f.CooldownUltimate = move.Cooldown; break;
+                case CooldownSlot.Recharge: f.CooldownRecharge = move.Cooldown; break;
+                case CooldownSlot.Dodge: f.CooldownDodge = move.Cooldown; break;
+            }
+        }
+
+        private static void StartMove(GameState s, int index, ref FighterState f, CharacterDef c, MoveDef move, int comboStep, InputFrame input, ref FighterState opp, EventBuffer ev)
+        {
+            SetAction(ref f, FighterAction.Attack);
+            f.MoveId = move.Id;
+            f.MoveTick = -1;
+            f.HitMask = 0;
+            f.RehitTimer = 0;
+            f.ComboStep = comboStep;
+
+            bool isMovementMove = move.Pose == MovePose.Dodge;
+            if (isMovementMove)
+            {
+                if (input.HasMove)
+                {
+                    f.MoveDirection = input.MoveAngleFull;
+                    if (!f.LockOn) f.Facing = input.MoveAngleFull;
+                }
+                else
+                {
+                    f.MoveDirection = move.TeleportDistance > Fix.Zero ? f.Facing : FixMath.NormalizeAngle(f.Facing + FixMath.HalfTurn);
+                }
+            }
+            else
+            {
+                int intended = input.HasMove ? input.MoveAngleFull : f.Facing;
+                if (move.SoftTarget && ShouldTarget(ref f, ref opp, intended)) intended = AngleTo(ref f, ref opp);
+                f.Facing = intended;
+                f.MoveDirection = intended;
+            }
+
+            if (ev != null) ev.Add(s.Tick, move.Pose == MovePose.Dodge && move.TeleportDistance == Fix.Zero ? SimEventType.Dodge : SimEventType.MoveStart, index, move.Id, f.Position);
+            ProcessMove(s, index, ref f, c, input, ref opp, ev);
+        }
+
+        private static bool ShouldTarget(ref FighterState f, ref FighterState opp, int intendedAngle)
+        {
+            if (opp.Action == FighterAction.KO || opp.Action == FighterAction.RingOut) return false;
+            if (f.LockOn) return true;
+            FixVec3 to = (opp.Position - f.Position).Horizontal();
+            if (to.LengthSquared() > GameConfig.SoftTargetRange * GameConfig.SoftTargetRange) return false;
+            return FixMath.AbsAngleDelta(intendedAngle, to.ToAngle()) <= GameConfig.SoftTargetArc;
+        }
+
+        private static void ProcessMove(GameState s, int index, ref FighterState f, CharacterDef c, InputFrame input, ref FighterState opp, EventBuffer ev)
+        {
+            MoveDef m = GameContent.GetMove(f.MoveId);
+            if (m == null || f.MoveTick + 1 >= m.Total)
+            {
+                EndMove(ref f);
+                if (f.Action == FighterAction.Air) AirActionable(s, index, ref f, c, input, ref opp, ev);
+                else GroundActionable(s, index, ref f, c, input, ref opp, ev);
+                return;
+            }
+
+            f.MoveTick++;
+            int t = f.MoveTick;
+
+            // Horizontal motion.
+            if (m.Steerable)
+            {
+                FixVec3 steer = input.HasMove ? FixVec3.FromAngle(input.MoveAngleFull) * m.SteerSpeed : FixVec3.Zero;
+                f.Velocity.X = steer.X;
+                f.Velocity.Z = steer.Z;
+            }
+            else
+            {
+                bool moved = false;
+                for (int i = 0; i < m.Motions.Length; i++)
+                {
+                    MotionDef md = m.Motions[i];
+                    if (t < md.Start || t > md.End) continue;
+                    FixVec3 v = FixVec3.FromAngle(f.MoveDirection) * md.Forward;
+                    f.Velocity.X = v.X;
+                    f.Velocity.Z = v.Z;
+                    if (md.SetVertical) f.Velocity.Y = md.Up;
+                    moved = true;
+                }
+                if (!moved)
+                {
+                    if (f.Grounded) ApplyGroundFriction(ref f);
+                    else
+                    {
+                        f.Velocity.X = f.Velocity.X * GameConfig.AirFriction;
+                        f.Velocity.Z = f.Velocity.Z * GameConfig.AirFriction;
+                    }
+                }
+            }
+
+            if (f.Buff == BuffId.Levitate && !HasVerticalMotion(m, t)) FlightVertical(ref f, input);
+
+            if (m.TeleportDistance > Fix.Zero && t == m.TeleportTick)
+            {
+                FixVec3 from = f.Position;
+                FixVec3 to = from + FixVec3.FromAngle(f.MoveDirection) * m.TeleportDistance;
+                if (Arena.IsInside(from) && !Arena.IsInside(to, EdgeMargin)) to = Arena.ClampInside(to, EdgeMargin);
+                f.Position = to;
+                if (ev != null) ev.Add(s.Tick, SimEventType.Teleport, index, m.Id, from);
+            }
+
+            if (m.ApplyBuff != BuffId.None && t == m.BuffTick)
+            {
+                f.Buff = m.ApplyBuff;
+                f.BuffTicks = m.BuffDuration;
+                if (ev != null) ev.Add(s.Tick, SimEventType.BuffStart, index, (int)m.ApplyBuff, f.Position);
+            }
+
+            if (m.MagicGain > 0 && t == m.MagicGainTick)
+            {
+                f.Magic += m.MagicGain;
+                if (f.Magic > GameConfig.MaxMagic) f.Magic = GameConfig.MaxMagic;
+                if (ev != null) ev.Add(s.Tick, SimEventType.Recharge, index, m.MagicGain, f.Position);
+            }
+
+            for (int i = 0; i < m.Spawns.Length; i++)
+            {
+                if (m.Spawns[i].Tick == t) ProjectileLogic.Spawn(s, index, m.Spawns[i], ref opp, ev);
+            }
+
+            if (m.CancelStart >= 0 && t >= m.CancelStart && t <= m.CancelEnd)
+            {
+                TryStartAction(s, index, ref f, c, input, ref opp, ev, true);
+            }
+        }
+
+        private static bool HasVerticalMotion(MoveDef m, int t)
+        {
+            for (int i = 0; i < m.Motions.Length; i++)
+            {
+                if (m.Motions[i].SetVertical && t >= m.Motions[i].Start && t <= m.Motions[i].End) return true;
+            }
+            return false;
+        }
+
+        private static void EndMove(ref FighterState f)
+        {
+            f.MoveId = -1;
+            f.MoveTick = 0;
+            bool flying = f.Buff == BuffId.Levitate;
+            SetAction(ref f, f.Grounded && !flying ? FighterAction.Idle : FighterAction.Air);
+        }
+
+        private static void Integrate(GameState s, int index, ref FighterState f, CharacterDef c, InputFrame input, FixVec3 previous, EventBuffer ev)
+        {
+            bool flying = IsFlying(ref f);
+            if (!f.Grounded && !flying)
+            {
+                Fix gravity = c.Gravity;
+                if (f.Action == FighterAction.Attack)
+                {
+                    MoveDef m = GameContent.GetMove(f.MoveId);
+                    if (m != null)
+                    {
+                        if (HasVerticalMotion(m, f.MoveTick)) gravity = Fix.Zero;
+                        else gravity = gravity * m.GravityScale;
+                    }
+                }
+                else if (f.Action == FighterAction.Launched)
+                {
+                    gravity = gravity + GameConfig.JuggleGravityStep * f.JuggleCount;
+                }
+                f.Velocity.Y = f.Velocity.Y - gravity;
+            }
+
+            FixVec3 next = f.Position + f.Velocity;
+
+            bool wasInside = Arena.IsInside(previous);
+            if (IsVoluntary(f.Action) && wasInside && next.Y > VoidCatchHeight && !Arena.IsInside(next, EdgeMargin))
+            {
+                FixVec3 clamped = Arena.ClampInside(next, EdgeMargin);
+                next.X = clamped.X;
+                next.Z = clamped.Z;
+            }
+
+            bool inside = Arena.IsInside(next);
+            bool wasGrounded = f.Grounded;
+            if (inside && next.Y <= Fix.Zero && previous.Y >= FloorSnapTolerance && f.Velocity.Y <= Fix.Zero && !flying)
+            {
+                next.Y = Fix.Zero;
+                f.Velocity.Y = Fix.Zero;
+                f.Grounded = true;
+                f.AirDashUsed = false;
+                if (!wasGrounded) OnLand(s, index, ref f, ev);
+            }
+            else
+            {
+                f.Grounded = false;
+            }
+
+            f.Position = next;
+
+            if (f.Position.Y < GameConfig.RingOutHeight && f.Action != FighterAction.RingOut)
+            {
+                SetAction(ref f, FighterAction.RingOut);
+                f.Velocity = FixVec3.Zero;
+                f.MoveId = -1;
+                if (ev != null) ev.Add(s.Tick, SimEventType.RingOut, index, 0, f.Position);
+            }
+            if (f.Action == FighterAction.RingOut)
+            {
+                f.Velocity = FixVec3.Zero;
+                f.Position.Y = GameConfig.RingOutHeight;
+            }
+        }
+
+        private static void OnLand(GameState s, int index, ref FighterState f, EventBuffer ev)
+        {
+            if (ev != null) ev.Add(s.Tick, SimEventType.Land, index, (int)f.Action, f.Position);
+            switch (f.Action)
+            {
+                case FighterAction.Air:
+                    SetAction(ref f, FighterAction.Idle);
+                    break;
+                case FighterAction.Attack:
+                    MoveDef m = GameContent.GetMove(f.MoveId);
+                    if (m != null && m.EndsOnLanding)
+                    {
+                        f.MoveId = -1;
+                        SetAction(ref f, FighterAction.Landing);
+                        f.StunTicks = m.LandingRecovery;
+                        f.Velocity.X = Fix.Zero;
+                        f.Velocity.Z = Fix.Zero;
+                    }
+                    break;
+                case FighterAction.Launched:
+                    SetAction(ref f, FighterAction.Knockdown);
+                    f.StunTicks = GameConfig.KnockdownTicks;
+                    f.Velocity.X = f.Velocity.X * Fix.Half;
+                    f.Velocity.Z = f.Velocity.Z * Fix.Half;
+                    break;
+                case FighterAction.HitStun:
+                    break;
+            }
+        }
+
+        /// <summary>Pushes the two fighters apart so they cannot overlap.</summary>
+        public static void Separate(GameState s)
+        {
+            ref FighterState a = ref s.Fighters[0];
+            ref FighterState b = ref s.Fighters[1];
+            if (a.Action == FighterAction.RingOut || b.Action == FighterAction.RingOut) return;
+
+            CharacterDef ca = GameContent.GetCharacter(a.CharacterId);
+            CharacterDef cb = GameContent.GetCharacter(b.CharacterId);
+            Fix dy = Fix.Abs(a.Position.Y - b.Position.Y);
+            if (dy > Fix.Max(ca.Height, cb.Height)) return;
+
+            FixVec3 delta = (b.Position - a.Position).Horizontal();
+            Fix minDist = ca.Radius + cb.Radius;
+            Fix distSq = delta.LengthSquared();
+            if (distSq >= minDist * minDist) return;
+
+            Fix dist = Fix.Sqrt(distSq);
+            FixVec3 dir = dist > Fix.Zero ? delta / dist : FixVec3.FromAngle(a.Facing);
+            Fix push = (minDist - dist) * Fix.Half;
+            FixVec3 aBefore = a.Position;
+            FixVec3 bBefore = b.Position;
+            a.Position = a.Position - dir * push;
+            b.Position = b.Position + dir * push;
+
+            if (IsVoluntary(a.Action) && Arena.IsInside(aBefore) && !Arena.IsInside(a.Position, EdgeMargin)) a.Position = Arena.ClampInside(a.Position, EdgeMargin);
+            if (IsVoluntary(b.Action) && Arena.IsInside(bBefore) && !Arena.IsInside(b.Position, EdgeMargin)) b.Position = Arena.ClampInside(b.Position, EdgeMargin);
+        }
+    }
+}

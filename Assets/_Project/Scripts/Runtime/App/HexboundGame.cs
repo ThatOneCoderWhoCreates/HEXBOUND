@@ -1,0 +1,615 @@
+using System;
+using HEXBOUND.Core;
+using HEXBOUND.Input;
+using HEXBOUND.Netcode;
+using HEXBOUND.Presentation;
+using HEXBOUND.Simulation;
+using HEXBOUND.UI;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace HEXBOUND.App
+{
+    /// <summary>
+    /// The game's composition root. Put this on one GameObject in an empty scene and press Play.
+    /// It builds the camera, arena, UI and audio in code, runs offline matches directly,
+    /// and runs online matches through NetMatch (rollback netcode).
+    /// </summary>
+    public sealed class HexboundGame : MonoBehaviour
+    {
+        private enum ScreenId
+        {
+            Menu,
+            Select,
+            Online,
+            Match,
+        }
+
+        private const double TickSeconds = 1.0 / GameConfig.TickRate;
+        private const ushort DirectPort = 7777;
+
+        private ThirdPersonCamera _camera;
+        private ArenaView _arena;
+        private SfxPlayer _sfx;
+        private MatchPresenter _presenter;
+        private readonly LocalInputReader _input = new LocalInputReader();
+
+        private MainMenuScreen _menu;
+        private CharacterSelectScreen _select;
+        private OnlineScreen _online;
+        private OverlayScreens _overlay;
+        private MatchHud _hud;
+
+        private ScreenId _screen;
+        private bool _paused;
+        private bool _resultsShown;
+        private int _localIndex;
+
+        // Offline match.
+        private GameState _offline;
+        private readonly EventBuffer _offlineEvents = new EventBuffer(512);
+        private TrainingBot _bot;
+        private MatchSetup _offlineSetup;
+        private SelectMode _offlineMode;
+        private BotMode _trainingBotMode = BotMode.Idle;
+        private bool _infiniteMagic;
+        private double _accumulator;
+
+        // Online match.
+        private UnityTransportLink _link;
+        private NetMatch _net;
+        private int _netMatchCounter;
+        private int _onlineAttempt;
+        private string _disconnectMessage = string.Empty;
+
+        private bool IsOnline
+        {
+            get { return _net != null; }
+        }
+
+        private GameState CurrentState
+        {
+            get
+            {
+                if (IsOnline) return _net.Session != null ? _net.Session.State : null;
+                return _offline;
+            }
+        }
+
+        private void Awake()
+        {
+            Application.targetFrameRate = 144;
+            QualitySettings.vSyncCount = 1;
+            Application.runInBackground = true;
+
+            Camera existing = Camera.main;
+            if (existing != null) existing.gameObject.SetActive(false);
+
+            _camera = new ThirdPersonCamera(transform);
+            _arena = new ArenaView(transform);
+            _sfx = new SfxPlayer(transform);
+            _presenter = new MatchPresenter(transform, _sfx);
+            _presenter.ShowHitboxes = GameSettings.ShowHitboxes;
+
+            Canvas canvas = UIFactory.CreateCanvas(transform, "UI", 10);
+            UIFactory.EnsureEventSystem(transform);
+            _hud = new MatchHud(canvas.transform);
+            _menu = new MainMenuScreen(canvas.transform);
+            _select = new CharacterSelectScreen(canvas.transform);
+            _online = new OnlineScreen(canvas.transform, GameSettings.LastIp);
+            _overlay = new OverlayScreens(canvas.transform);
+            _overlay.SetHitboxLabel(_presenter.ShowHitboxes);
+            _overlay.SetSensitivityLabel(GameSettings.MouseSensitivity);
+
+            _presenter.Effects.Popup += (pos, text, color, size) => _hud.AddPopup(pos, text, color, size);
+            _presenter.Effects.Shake += amount => _camera.AddShake(amount);
+
+            WireMenus();
+            ShowMenu();
+        }
+
+        private void WireMenus()
+        {
+            _menu.Training += () => OpenOfflineSelect(SelectMode.Training);
+            _menu.VersusBot += () => OpenOfflineSelect(SelectMode.VersusBot);
+            _menu.Online += OpenOnline;
+            _menu.Controls += () =>
+            {
+                Click();
+                _overlay.Controls.SetActive(true);
+            };
+            _menu.Quit += Quit;
+
+            _select.Back += () =>
+            {
+                _sfx.Play(Sfx.UiBack, 1f, 0f);
+                if (_select.Mode == SelectMode.Online) LeaveOnline("You left the lobby.");
+                else ShowMenu();
+            };
+            _select.StartOffline += StartOffline;
+            _select.OnlinePick += (character, ready) =>
+            {
+                Click();
+                if (_net != null) _net.SetCharacter(character, ready);
+            };
+            _select.BotModeClicked += () =>
+            {
+                Click();
+                _trainingBotMode = (BotMode)(((int)_trainingBotMode + 1) % 3);
+                _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
+            };
+            _select.InfiniteMagicClicked += () =>
+            {
+                Click();
+                _infiniteMagic = !_infiniteMagic;
+                _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
+            };
+
+            _online.HostRoom += HostRoom;
+            _online.JoinRoom += JoinRoom;
+            _online.HostDirect += HostDirect;
+            _online.JoinDirect += JoinDirect;
+            _online.Cancel += () =>
+            {
+                _sfx.Play(Sfx.UiBack, 1f, 0f);
+                CloseOnline();
+                ShowMenu();
+            };
+
+            _overlay.Resume += () => SetPaused(false);
+            _overlay.ShowControls += () =>
+            {
+                Click();
+                _overlay.Controls.SetActive(true);
+            };
+            _overlay.CloseControls += () =>
+            {
+                Click();
+                _overlay.Controls.SetActive(false);
+            };
+            _overlay.ToggleHitboxes += ToggleHitboxes;
+            _overlay.SensitivityChanged += delta =>
+            {
+                GameSettings.MouseSensitivity = GameSettings.MouseSensitivity + delta;
+                _overlay.SetSensitivityLabel(GameSettings.MouseSensitivity);
+            };
+            _overlay.LeaveMatch += () =>
+            {
+                SetPaused(false);
+                if (IsOnline) LeaveOnline(string.Empty);
+                else EndOfflineToMenu();
+            };
+            _overlay.Rematch += () =>
+            {
+                Click();
+                _overlay.Results.SetActive(false);
+                if (IsOnline)
+                {
+                    _net.ReturnToSelect();
+                }
+                else
+                {
+                    StartOffline(_offlineSetup.Character0, _offlineSetup.Character1);
+                }
+            };
+            _overlay.ToMenu += () =>
+            {
+                Click();
+                _overlay.Results.SetActive(false);
+                if (IsOnline) LeaveOnline(string.Empty);
+                else EndOfflineToMenu();
+            };
+        }
+
+        private void Click()
+        {
+            _sfx.Play(Sfx.UiClick, 1f, 0f);
+        }
+
+        // ---------------------------------------------------------------- Screens
+
+        private void HideAll()
+        {
+            _menu.Show(false);
+            _select.Show(false);
+            _online.Show(false);
+            _hud.Show(false);
+            _overlay.Pause.SetActive(false);
+            _overlay.Results.SetActive(false);
+        }
+
+        private void ShowMenu()
+        {
+            HideAll();
+            _presenter.Clear();
+            _offline = null;
+            _screen = ScreenId.Menu;
+            _menu.Show(true);
+        }
+
+        private void OpenOfflineSelect(SelectMode mode)
+        {
+            Click();
+            HideAll();
+            _screen = ScreenId.Select;
+            _select.Open(mode);
+            _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
+        }
+
+        private void OpenOnline()
+        {
+            Click();
+            HideAll();
+            _screen = ScreenId.Online;
+            _online.Reset();
+            if (!string.IsNullOrEmpty(_disconnectMessage)) _online.SetStatus(_disconnectMessage);
+            _disconnectMessage = string.Empty;
+            _online.Show(true);
+        }
+
+        // ---------------------------------------------------------------- Offline
+
+        private void StartOffline(int player, int opponent)
+        {
+            Click();
+            _offlineMode = _select.Mode;
+            bool training = _offlineMode == SelectMode.Training;
+            _offlineSetup = new MatchSetup
+            {
+                Character0 = player,
+                Character1 = opponent,
+                Seed = (uint)Environment.TickCount | 1u,
+                Mode = training ? MatchMode.Training : MatchMode.Versus,
+                InfiniteMagic = training && _infiniteMagic,
+            };
+            _offline = new GameState();
+            _offlineEvents.Clear();
+            GameSimulation.Initialize(_offline, _offlineSetup, _offlineEvents);
+            _bot = new TrainingBot(_offlineSetup.Seed * 31u + 7u)
+            {
+                Mode = training ? _trainingBotMode : BotMode.Fight,
+                ReactionTicks = 9,
+            };
+            _localIndex = 0;
+            _accumulator = 0;
+            BeginMatchView(_offline);
+        }
+
+        private void RestartTraining()
+        {
+            if (_offline == null) return;
+            _offlineEvents.Clear();
+            GameSimulation.Initialize(_offline, _offlineSetup, _offlineEvents);
+        }
+
+        private void EndOfflineToMenu()
+        {
+            _offline = null;
+            ShowMenu();
+        }
+
+        private void BeginMatchView(GameState state)
+        {
+            HideAll();
+            _screen = ScreenId.Match;
+            _paused = false;
+            _resultsShown = false;
+            _presenter.Build(state, _localIndex);
+            _hud.Show(true);
+            _camera.SnapBehind(state.Fighters[_localIndex].Facing * 360f / FixMath.FullTurn);
+        }
+
+        private void UpdateOffline(double dt)
+        {
+            if (_offline == null || _paused) return;
+            _accumulator += dt;
+            if (_accumulator > TickSeconds * 8) _accumulator = TickSeconds * 8;
+            while (_accumulator >= TickSeconds)
+            {
+                InputFrame local = SampleLocal();
+                InputFrame bot = _bot.Think(_offline, 1);
+                GameSimulation.Tick(_offline, local, bot, _offlineEvents);
+                _accumulator -= TickSeconds;
+            }
+        }
+
+        private InputFrame SampleLocal()
+        {
+            return _input.Sample(_camera.Camera.transform.eulerAngles.y);
+        }
+
+        // ---------------------------------------------------------------- Online
+
+        private async void HostRoom()
+        {
+            Click();
+            CloseOnline();
+            int attempt = ++_onlineAttempt;
+            _online.SetBusy(true);
+            _online.SetStatus("Signing in and creating a room...");
+            try
+            {
+                OnlineServices.HostResult result = await OnlineServices.CreateRoomAsync();
+                if (attempt != _onlineAttempt || _screen != ScreenId.Online) return;
+                _link = UnityTransportLink.HostRelay(result.RelayData);
+                _net = new NetMatch(_link, true, GameSettings.InputDelay, (uint)Environment.TickCount);
+                _online.SetRoomCode(result.JoinCode);
+                _online.SetStatus("Share this code with your opponent. Waiting for them to join...");
+            }
+            catch (Exception e)
+            {
+                if (attempt != _onlineAttempt) return;
+                Debug.LogWarning("HEXBOUND: create room failed: " + e);
+                _online.SetBusy(false);
+                _online.SetStatus(OnlineServices.Explain(e));
+            }
+        }
+
+        private async void JoinRoom(string code)
+        {
+            Click();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                _online.SetStatus("Enter the room code first.");
+                return;
+            }
+            CloseOnline();
+            int attempt = ++_onlineAttempt;
+            _online.SetBusy(true);
+            _online.SetStatus("Joining room " + code.Trim().ToUpperInvariant() + "...");
+            try
+            {
+                var relay = await OnlineServices.JoinRoomAsync(code);
+                if (attempt != _onlineAttempt || _screen != ScreenId.Online) return;
+                _link = UnityTransportLink.JoinRelay(relay);
+                _net = new NetMatch(_link, false, GameSettings.InputDelay);
+                _online.SetStatus("Connecting...");
+            }
+            catch (Exception e)
+            {
+                if (attempt != _onlineAttempt) return;
+                Debug.LogWarning("HEXBOUND: join room failed: " + e);
+                _online.SetBusy(false);
+                _online.SetStatus(OnlineServices.Explain(e));
+            }
+        }
+
+        private void HostDirect()
+        {
+            Click();
+            CloseOnline();
+            _onlineAttempt++;
+            _link = UnityTransportLink.HostDirect(DirectPort);
+            _net = new NetMatch(_link, true, GameSettings.InputDelay, (uint)Environment.TickCount);
+            _online.SetBusy(_link.Status != TransportStatus.Failed);
+            _online.SetStatus(_link.StatusMessage + "  Your opponent joins with your IP address.");
+        }
+
+        private void JoinDirect(string ip)
+        {
+            Click();
+            CloseOnline();
+            _onlineAttempt++;
+            string address = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim();
+            GameSettings.LastIp = address;
+            _link = UnityTransportLink.JoinDirect(address, DirectPort);
+            _net = new NetMatch(_link, false, GameSettings.InputDelay);
+            _online.SetBusy(_link.Status != TransportStatus.Failed);
+            _online.SetStatus(_link.StatusMessage);
+        }
+
+        /// <summary>Closes any connection without changing screens.</summary>
+        private void CloseOnline()
+        {
+            if (_net != null && _net.State != NetMatchState.Disconnected) _net.Leave();
+            _net = null;
+            if (_link != null) _link.Dispose();
+            _link = null;
+            _netMatchCounter = 0;
+        }
+
+        private void LeaveOnline(string message)
+        {
+            CloseOnline();
+            _presenter.Clear();
+            _disconnectMessage = message;
+            if (string.IsNullOrEmpty(message)) ShowMenu();
+            else OpenOnline();
+        }
+
+        private void UpdateOnline(double dt)
+        {
+            if (_net == null) return;
+            _net.Update(dt, SampleLocal);
+
+            if (_net.State == NetMatchState.Disconnected)
+            {
+                string msg = _net.Message;
+                LeaveOnline(string.IsNullOrEmpty(msg) ? "Disconnected." : msg);
+                return;
+            }
+
+            if (_net.State == NetMatchState.CharacterSelect && (_screen != ScreenId.Select || _select.Mode != SelectMode.Online))
+            {
+                HideAll();
+                _presenter.Clear();
+                _screen = ScreenId.Select;
+                _select.Open(SelectMode.Online);
+                _net.SetCharacter(_select.Player, false);
+            }
+
+            if (_screen == ScreenId.Select && _select.Mode == SelectMode.Online)
+            {
+                _select.SetRemote(_net.RemoteCharacter, _net.RemoteReady, (_net.IsHost ? "You are host" : "Connected") + "  |  Ping " + Mathf.RoundToInt((float)_net.RttMs) + " ms");
+            }
+
+            if (_net.State == NetMatchState.InMatch && _net.MatchCounter != _netMatchCounter)
+            {
+                _netMatchCounter = _net.MatchCounter;
+                _localIndex = _net.LocalIndex;
+                BeginMatchView(_net.Session.State);
+            }
+
+            if (_screen == ScreenId.Online && _link != null && (_link.Status == TransportStatus.Failed))
+            {
+                _online.SetBusy(false);
+                _online.SetStatus(_link.StatusMessage);
+                CloseOnline();
+            }
+        }
+
+        // ---------------------------------------------------------------- Frame loop
+
+        private void Update()
+        {
+            double dt = Math.Min(Time.unscaledDeltaTime, 0.1);
+            bool inMatch = _screen == ScreenId.Match;
+
+            _input.GameplayEnabled = inMatch && !_paused && !_resultsShown;
+            _input.Update();
+            HandleHotkeys(inMatch);
+
+            if (IsOnline) UpdateOnline(dt);
+            else if (inMatch) UpdateOffline(dt);
+
+            _arena.Update((float)dt);
+
+            GameState state = CurrentState;
+            if (_screen == ScreenId.Match && state != null)
+            {
+                EventBuffer events = IsOnline ? _net.Session.Events : _offlineEvents;
+                float alpha = IsOnline ? _net.Interpolation : (float)(_accumulator / TickSeconds);
+                _presenter.Render(state, events, Mathf.Clamp01(alpha), (float)dt);
+                events.Clear();
+                _hud.Update(state, _localIndex, _camera.Camera, NetInfo(), TrainingInfo(), (float)dt);
+
+                if (state.Phase == MatchPhase.MatchOver && state.PhaseTicks > 90 && !_resultsShown) ShowResults(state);
+            }
+
+            bool lockCursor = _screen == ScreenId.Match && !_paused && !_resultsShown && !_overlay.Controls.activeSelf;
+            Cursor.lockState = lockCursor ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !lockCursor;
+        }
+
+        private void LateUpdate()
+        {
+            float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
+            GameState state = CurrentState;
+            if (_screen == ScreenId.Match && state != null && _presenter.HasMatch)
+            {
+                if (state.Phase == MatchPhase.Intro && state.PhaseTicks <= 2)
+                {
+                    _camera.SnapBehind(state.Fighters[_localIndex].Facing * 360f / FixMath.FullTurn);
+                }
+                FighterView me = _presenter.Fighters[_localIndex];
+                FighterView opp = _presenter.Fighters[1 - _localIndex];
+                Vector2 look = (_paused || _resultsShown) ? Vector2.zero : _input.ReadLook(GameSettings.MouseSensitivity, dt);
+                _camera.UpdateFollow(me.Position, opp.Position, state.Fighters[_localIndex].LockOn, look, GameSettings.InvertY, dt);
+            }
+            else
+            {
+                _camera.UpdateMenu(dt);
+            }
+        }
+
+        private void HandleHotkeys(bool inMatch)
+        {
+            if (LocalInputReader.PausePressed())
+            {
+                if (_overlay.Controls.activeSelf) _overlay.Controls.SetActive(false);
+                else if (inMatch && !_resultsShown) SetPaused(!_paused);
+            }
+            if (!inMatch) return;
+            if (LocalInputReader.KeyPressed(Key.F1)) ToggleHitboxes();
+            bool training = !IsOnline && _offline != null && _offline.Setup.Mode == MatchMode.Training;
+            if (training && LocalInputReader.KeyPressed(Key.F2))
+            {
+                _trainingBotMode = (BotMode)(((int)_trainingBotMode + 1) % 3);
+                _bot.Mode = _trainingBotMode;
+                Click();
+            }
+            if (training && LocalInputReader.KeyPressed(Key.F4))
+            {
+                RestartTraining();
+                Click();
+            }
+        }
+
+        private void ToggleHitboxes()
+        {
+            _presenter.ShowHitboxes = !_presenter.ShowHitboxes;
+            GameSettings.ShowHitboxes = _presenter.ShowHitboxes;
+            _overlay.SetHitboxLabel(_presenter.ShowHitboxes);
+        }
+
+        private void SetPaused(bool paused)
+        {
+            _paused = paused;
+            _overlay.Pause.SetActive(paused);
+            if (!paused) _overlay.Controls.SetActive(false);
+            Click();
+        }
+
+        private void ShowResults(GameState s)
+        {
+            _resultsShown = true;
+            string title;
+            Color color;
+            if (s.MatchWinner == 2)
+            {
+                title = "DRAW";
+                color = new Color(0.8f, 0.8f, 0.9f);
+            }
+            else if (s.MatchWinner == _localIndex)
+            {
+                title = "VICTORY";
+                color = new Color(1f, 0.85f, 0.4f);
+            }
+            else
+            {
+                title = "DEFEAT";
+                color = new Color(1f, 0.4f, 0.4f);
+            }
+            CharacterDef c0 = GameContent.GetCharacter(s.Fighters[0].CharacterId);
+            CharacterDef c1 = GameContent.GetCharacter(s.Fighters[1].CharacterId);
+            string detail = c0.Name + "  " + s.Wins0 + " - " + s.Wins1 + "  " + c1.Name;
+            _overlay.ShowResults(title, color, detail, IsOnline ? "CHARACTER SELECT" : "REMATCH");
+        }
+
+        private string NetInfo()
+        {
+            if (!IsOnline || _net.Session == null) return string.Empty;
+            RollbackSession s = _net.Session;
+            string text = "Ping " + Mathf.RoundToInt((float)_net.RttMs) + " ms   Delay " + s.InputDelay + "   Rollback " + s.LastRollbackLength + "f";
+            if (s.Stalled) text += "\nWaiting for opponent...";
+            if (s.Desynced) text += "\n<color=#ff6060>DESYNC at tick " + s.DesyncTick + "</color>";
+            return text;
+        }
+
+        private string TrainingInfo()
+        {
+            if (IsOnline || _offline == null || _offline.Setup.Mode != MatchMode.Training) return string.Empty;
+            return "TRAINING   Bot: " + _trainingBotMode + " (F2)\nInfinite magic: " + (_offline.Setup.InfiniteMagic ? "ON" : "OFF") + "   F1 hitboxes   F4 reset";
+        }
+
+        private void Quit()
+        {
+            Click();
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        private void OnDestroy()
+        {
+            CloseOnline();
+        }
+
+        private void OnApplicationQuit()
+        {
+            CloseOnline();
+        }
+    }
+}

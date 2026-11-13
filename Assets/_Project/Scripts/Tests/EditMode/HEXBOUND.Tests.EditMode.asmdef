@@ -4,6 +4,7 @@
     "references": [
         "HEXBOUND.Simulation",
         "HEXBOUND.Core",
+        "HEXBOUND.Netcode",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

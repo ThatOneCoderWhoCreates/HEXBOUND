@@ -4,8 +4,8 @@
     "references": [
         "HEXBOUND.Simulation",
         "HEXBOUND.Core",
-        "Unity.TextMeshPro",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

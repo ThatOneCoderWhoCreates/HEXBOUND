@@ -6,6 +6,8 @@
         "HEXBOUND.Core",
         "Unity.Networking.Transport",
         "Unity.Collections",
+        "Unity.Burst",
+        "Unity.Mathematics",
         "Unity.Services.Core",
         "Unity.Services.Authentication",
         "Unity.Services.Multiplayer"

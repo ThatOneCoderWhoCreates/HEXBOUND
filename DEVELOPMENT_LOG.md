@@ -19,6 +19,8 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 - Created 10 assembly definitions (see `ARCHITECTURE.md` section 8). `HEXBOUND.Simulation` has no engine references.
 - Added `.gitignore` and `.gitattributes` (Git LFS for binary assets).
 - Updated `GDD.md` (movement, camera, modes, milestones) and `ARCHITECTURE.md` (decisions, input frame, camera, assemblies, packages, version control).
+- Added `README.md`.
+- Git initialized with Git LFS. First commit pushed to the private GitHub repository `ThatOneCoderWhoCreates/HEXBOUND` on branch `main` (205 tracked files, no `Library/`, `Temp/`, `Logs/`, `UserSettings/` or generated project files).
 
 ### Open issues
 
