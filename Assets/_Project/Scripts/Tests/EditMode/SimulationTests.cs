@@ -39,9 +39,53 @@ namespace HEXBOUND.Tests
         }
 
         [Test]
+        public void ArenaEdgeAndSpikesAreConsistent()
+        {
+            for (int degrees = 0; degrees < 360; degrees += 3)
+            {
+                FixVec3 dir = FixVec3.FromAngle(FixMath.DegreesToAngle(degrees));
+                Assert.IsTrue(Arena.IsInside(dir * Fix.Milli(8500)), "inside at 8.5 units, " + degrees + " degrees");
+                Assert.IsFalse(Arena.IsInside(dir * Fix.Milli(14200)), "outside at 14.2 units, " + degrees + " degrees");
+                Assert.IsTrue(Arena.IsInside(Arena.ClampInside(dir * Fix.FromInt(20), Fix.Milli(300))), "clamp at " + degrees + " degrees");
+            }
+            Assert.IsTrue(Arena.IsInside(Arena.Spawn0) && Arena.IsInside(Arena.Spawn1));
+            FixVec3 n;
+            FixVec3 spawn = Arena.Spawn0;
+            Assert.IsFalse(Arena.PushOutOfPillars(ref spawn, Fix.Half, out n), "spawn 0 is clear of spikes");
+            spawn = Arena.Spawn1;
+            Assert.IsFalse(Arena.PushOutOfPillars(ref spawn, Fix.Half, out n), "spawn 1 is clear of spikes");
+            for (int i = 0; i < Arena.Pillars.Length; i++)
+            {
+                FixVec3 p = Arena.Pillars[i];
+                Assert.IsTrue(Arena.PushOutOfPillars(ref p, Fix.Half, out n), "inside spike " + i + " gets pushed");
+                Assert.IsFalse(Arena.HitsPillar(p + n * Fix.Milli(10), Fix.Half), "pushed clear of spike " + i);
+            }
+        }
+
+        [Test]
+        public void HealRestoresFivePercentWithCooldown()
+        {
+            GameState s = NewMatch(0, 1, 5);
+            int guard = 0;
+            while (s.Phase != MatchPhase.Fighting && guard++ < 2000) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            CharacterDef c = GameContent.GetCharacter(s.Fighters[0].CharacterId);
+            s.Fighters[0].Health = c.MaxHealth / 2;
+            var heal = new InputFrame { Buttons = InputButtons.Heal };
+            GameSimulation.Tick(s, heal, InputFrame.Empty, null);
+            for (int i = 0; i < 40; i++) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            Assert.AreEqual(c.MaxHealth / 2 + c.MaxHealth * 5 / 100, s.Fighters[0].Health, "healed 5%");
+            Assert.Greater(s.Fighters[0].CooldownHeal, 0, "heal is on cooldown");
+
+            int before = s.Fighters[0].Health;
+            GameSimulation.Tick(s, heal, InputFrame.Empty, null);
+            for (int i = 0; i < 40; i++) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            Assert.AreEqual(before, s.Fighters[0].Health, "no heal during cooldown");
+        }
+
+        [Test]
         public void InputPacking()
         {
-            var input = new InputFrame { Buttons = InputButtons.Heavy | InputButtons.LockOn, MoveAngle = 200, HasMove = true };
+            var input = new InputFrame { Buttons = InputButtons.Heavy | InputButtons.LockOn | InputButtons.Heal, MoveAngle = 200, HasMove = true };
             Assert.IsTrue(InputFrame.Unpack(input.Pack()).Equals(input));
         }
 

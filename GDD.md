@@ -24,7 +24,7 @@ One-line pitch: two hex-wielding fighters battle on a floating hexagonal arena, 
 
 ## 3. Theme
 
-"Hex" means both the hexagonal arena and the hexes (curses and spells) the fighters cast. Art style is TBD; the first build uses imported placeholder models and code-made effects.
+"Hex" refers to the hexes (curses and spells) the fighters cast. The arena was a hexagon in early builds and is now a floating island over a lava arena. Art style is TBD; the first build uses imported placeholder models and code-made effects.
 
 ## 4. Match rules
 
@@ -33,7 +33,7 @@ One-line pitch: two hex-wielding fighters battle on a floating hexagonal arena, 
 - A round is won by reducing the opponent's health to 0 (K.O.) or knocking them off the arena (ring-out).
 - On timeout, the fighter with the higher health percentage wins. Equal health is a draw.
 - Health, magic and cooldowns reset each round.
-- Walking, dodging and blinking can never carry a fighter off the edge. Only being hit can.
+- Walking, dodging and blinking can never carry a fighter off the island's edge. Only being hit can.
 
 ## 5. Movement (free 3D, camera-relative)
 
@@ -58,6 +58,7 @@ One-line pitch: two hex-wielding fighters battle on a floating hexagonal arena, 
 | Left Ctrl | Block (hold). Parry: start blocking at most 8 frames (0.13 s) before a hit |
 | F | Grab (beats block and parry, misses airborne targets) |
 | M | Recharge magic (+30, 5 second cooldown) |
+| Z | Heal (+5% of max health, 20 second cooldown) |
 | Tab or middle mouse | Lock-on |
 | Esc | Pause |
 
@@ -68,6 +69,7 @@ Gamepad: X light, Y heavy, A jump, B dodge, LB block, RB skill 1, RT skill 2, LT
 - Health: 900 to 1100 depending on the fighter.
 - Magic: 500 maximum, full at the start of each round. Skills cost 100 to 180, ultimates 260 to 300. No passive regeneration.
 - Recharge (M): a short channel that gives +30 magic, usable every 5 seconds. You are open to attack while channeling.
+- Heal (Z): a short channel that restores 5% of maximum health (50 of 1000), usable every 20 seconds. Does nothing at full health. You are open to attack while channeling.
 - Every skill and ultimate also has its own cooldown.
 
 ### Defense
@@ -86,21 +88,24 @@ Gamepad: X light, Y heavy, A jump, B dodge, LB block, RB skill 1, RT skill 2, LT
 
 ## 7. Fighters
 
-| | Kael, the Hexblade | Bram, the Hexwarden | Lyra, the Hexcaller |
+| | Kael, the Hexblade | Rook, the Hexfist | Lyra, the Hexcaller |
 | --- | --- | --- | --- |
-| Weapon | Sword | Staff | Wand |
-| Style | Balanced, fast combos | Heavy, long reach, ring-outs | Fragile, ranged, mobile |
-| Health | 1000 | 1100 | 900 |
-| Q | Rising Slash: dash and launch (120) | Flurry: rapid multi-hit jabs (120) | Hex Bolts: three aimed bolts (100) |
-| E | Hex Wave: sword projectile (150) | Shockwave: area slam, big knockback (170) | Blink: short teleport (120) |
-| R | Twin Blades: dual swords for 10 s, faster 4-hit combo and stronger heavy (300) | Tempest: 3 s steerable spin that pulls in, then blasts away (280) | Levitate: fly for 8 s, shoot bolts and orbs from the air (260) |
-| Model | Female warrior model (supplied by Tanmay) | Shadowkin Mage model (Sketchfab, CC-BY-4.0) | Placeholder body made of primitives |
+| Type | Swordsman | Boxer | Wizard |
+| Style | Balanced, fast combos | Fastest on foot, short reach, punch strings | Fragile, ranged, flies |
+| Health | 1000 | 1000 | 900 |
+| Move speed (units/s) | 6.3 | 7.3 | 6.7 |
+| Light combo | 3 hits (4 with Twin Blades) | Jab, cross, hook, body blow | 2 pokes and a spark |
+| Heavy | Hex Cleave | Uppercut (launches) | Hex Orb (projectile) |
+| Q | Rising Slash: dash and launch (120) | Rapid Punches: fast multi-hit barrage (110) | Hex Bolts: three aimed bolts (100) |
+| E | Hex Wave: sword projectile (150) | Dash Punch: lunging straight (120) | Blink: short teleport (120) |
+| R | Twin Blades: dual swords for 10 s (300) | Final Round: 2 s steerable barrage, then a huge uppercut (280) | Levitate: fly for 8 s, shoot from the air (260) |
+| Model | Female warrior (supplied by Tanmay) | "Arcane Inspired Character" (Sketchfab, CC-BY-4.0) | "PBR Shadowkin Mage" (Sketchfab, CC-BY-4.0) |
 
-Numbers in brackets are magic costs. Tanmay will provide more ability details later.
+Numbers in brackets are magic costs. The Staff fighter (Bram) is designed and coded but out of the roster until a staff model is found. More fighters will be added later.
 
 ## 8. Arena
 
-A floating hexagonal platform (13 units from center to corner) over a void, with a glowing rim and crystals on the corners. Falling off the edge is a ring-out.
+Fighters battle on top of a floating island (playable radius about 10 to 12.9 units, following the island's real cliff edge). The island floats in the middle of a giant lava arena: the lava stage model with its own center stage removed, scaled up 3 times as the background, with a lava pool far below, rock spikes around it, embers rising and lava light from beneath. Being knocked off the island's edge is a ring-out.
 
 ## 9. Game modes
 
@@ -135,6 +140,6 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 ## 14. Open questions
 
 1. Ability details for each fighter (Tanmay to provide).
-2. Name and model for the Wand fighter.
+2. Final names for all fighters (current names are placeholders), and a staff model to bring Bram back.
 3. Art direction and animation source.
 4. Should magic regenerate slowly on its own as well?

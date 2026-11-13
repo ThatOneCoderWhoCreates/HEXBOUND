@@ -149,6 +149,7 @@ namespace HEXBOUND.Presentation
                     Flash(pos, new Color(4f, 3.5f, 2.5f), 0.12f, 0.3f, heavy ? 1.8f : 1.1f);
                     Burst(pos, c, heavy ? 16 : 9, heavy ? 9f : 6f, 0.35f);
                     _sfx.Play(heavy ? Sfx.HitHeavy : Sfx.Hit, 1f);
+                    if (e.Type == SimEventType.GrabHit) _sfx.Play(Sfx.BodySlam, 0.9f);
                     RaisePopup(pos + Vector3.up * 0.4f, e.Param.ToString(), e.Type == SimEventType.GrabHit ? new Color(1f, 0.6f, 0.2f) : Color.white, heavy ? 1.3f : 1f);
                     if (e.Type == SimEventType.GrabHit) RaisePopup(pos + Vector3.up * 0.9f, "THROW", new Color(1f, 0.6f, 0.2f), 1.1f);
                     if (e.Fighter >= 0 && _fighters[e.Fighter] != null) _fighters[e.Fighter].Punch(heavy ? 1f : 0.6f);
@@ -175,10 +176,11 @@ namespace HEXBOUND.Presentation
                     break;
                 case SimEventType.ProjectileHit:
                     Flash(pos, new Color(4f, 3f, 5f), 0.14f, 0.2f, 1.4f);
+                    _sfx.Play(Sfx.ProjectileHit, 0.7f);
                     break;
                 case SimEventType.ProjectileClash:
                     Burst(pos, new Color(5f, 5f, 5f), 14, 7f, 0.4f);
-                    _sfx.Play(Sfx.Explosion, 0.6f);
+                    _sfx.Play(Sfx.Clash, 0.9f);
                     break;
                 case SimEventType.ProjectileExpire:
                     Flash(pos, new Color(2f, 1.5f, 3f), 0.1f, 0.1f, 0.6f);
@@ -189,7 +191,8 @@ namespace HEXBOUND.Presentation
                     break;
                 case SimEventType.Land:
                     Ring(pos + Vector3.up * 0.05f, new Color(1.2f, 1.2f, 1.6f), 0.25f, 0.3f, 1.6f);
-                    _sfx.Play(Sfx.Land, 0.6f);
+                    bool slam = e.Param == (int)FighterAction.Launched || e.Param == (int)FighterAction.KO;
+                    _sfx.Play(slam ? Sfx.BodySlam : Sfx.Land, slam ? 0.9f : 0.6f);
                     break;
                 case SimEventType.Dodge:
                     Ring(pos + Vector3.up * 0.05f, FighterColor(e.Fighter, 2f), 0.2f, 0.2f, 1.3f);
@@ -216,6 +219,12 @@ namespace HEXBOUND.Presentation
                     _sfx.Play(Sfx.Magic, 0.8f);
                     RaisePopup(pos + Vector3.up * 2.1f, "+" + e.Param + " MAGIC", new Color(0.5f, 0.75f, 1f), 0.9f);
                     break;
+                case SimEventType.Heal:
+                    Ring(pos + Vector3.up * 0.1f, new Color(0.6f, 4f, 1.2f), 0.4f, 0.2f, 2.2f);
+                    Burst(pos + Vector3.up * 1f, new Color(0.6f, 4f, 1.2f), 12, 2.5f, 0.7f, true);
+                    _sfx.Play(Sfx.Magic, 0.7f, 0.1f);
+                    RaisePopup(pos + Vector3.up * 2.1f, "+" + e.Param + " HP", new Color(0.5f, 1f, 0.6f), 0.9f);
+                    break;
                 case SimEventType.NotEnoughMagic:
                     if (e.Fighter == _localIndex)
                     {
@@ -230,7 +239,10 @@ namespace HEXBOUND.Presentation
                     RaiseShake(1f);
                     break;
                 case SimEventType.RingOut:
-                    Ring(new Vector3(pos.x, -2f, pos.z), new Color(4f, 2f, 6f), 0.6f, 1f, 6f);
+                    Vector3 lava = new Vector3(pos.x, Arena.LavaHeight.ToFloat() + 0.1f, pos.z);
+                    Ring(lava, new Color(5f, 1.8f, 0.4f), 0.7f, 1f, 7f);
+                    Flash(lava, new Color(6f, 2.5f, 0.6f), 0.4f, 1f, 4f);
+                    Burst(lava, new Color(5f, 2f, 0.5f), 30, 9f, 0.9f, true);
                     _sfx.Play(Sfx.Explosion, 1f, 0f);
                     RaiseShake(0.8f);
                     break;

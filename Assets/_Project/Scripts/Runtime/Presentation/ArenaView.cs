@@ -6,16 +6,26 @@ using UnityEngine.Rendering.Universal;
 namespace HEXBOUND.Presentation
 {
     /// <summary>
-    /// Builds the hexagonal arena, the void around it, lighting and post-processing, all from code.
-    /// The arena shape matches HEXBOUND.Simulation.Arena exactly.
+    /// The battleground: the lava arena stage (Lava_Stage.fbx) used whole. Its flat center platform is the
+    /// fighting floor, with the top placed at height 0 to match HEXBOUND.Simulation.Arena, and its three rock
+    /// spikes are solid in the simulation. Two small floating islands drift in the sky beyond the wall as scenery.
+    /// Models load from Resources/Arena. If the stage is missing, a plain floor shaped like the simulation's
+    /// edge table is built instead, so the game always works.
     /// </summary>
     public sealed class ArenaView
     {
+        // Lava stage measurements (FBX units, measured from Lava_Stage.fbx). Used at its original scale.
+        private const float LavaOuterWidthFbx = 78.14f;
+        private const float LavaFloorFbx = 7.4f;
+        private const float LavaBaseCenterXFbx = 0.42f;
+
+        // Floating island scenery (floating_island_2k.fbx).
+        private const float IslandWidthFbx = 2680.06f;
+
         public GameObject Root { get; private set; }
 
-        private readonly Material _edgeMaterial;
-        private readonly Transform[] _floaters = new Transform[18];
-        private readonly Vector3[] _floaterBase = new Vector3[18];
+        private Material _lavaMaterial;
+        private Material _fallbackRim;
         private float _time;
 
         public ArenaView(Transform parent)
@@ -23,147 +33,98 @@ namespace HEXBOUND.Presentation
             Root = new GameObject("Arena");
             Root.transform.SetParent(parent, false);
 
-            float radius = Arena.Circumradius.ToFloat();
-            Material slab = MaterialFactory.Lit(new Color(0.11f, 0.1f, 0.16f), 0.2f);
-            Material tileA = MaterialFactory.Lit(new Color(0.2f, 0.19f, 0.27f), 0.55f, 0.1f);
-            Material tileB = MaterialFactory.Lit(new Color(0.16f, 0.15f, 0.22f), 0.45f, 0.1f);
-            Material tileCenter = MaterialFactory.Lit(new Color(0.24f, 0.18f, 0.34f), 0.6f, 0.1f, new Color(0.25f, 0.08f, 0.5f));
-            _edgeMaterial = MaterialFactory.Glow(new Color(0.7f, 0.35f, 2.6f));
-
-            // Base slab: a hexagonal prism slightly below the tiles.
-            var slabGo = new GameObject("Slab");
-            slabGo.transform.SetParent(Root.transform, false);
-            slabGo.AddComponent<MeshFilter>().sharedMesh = HexPrism(radius, 1.6f, -0.06f);
-            var slabRenderer = slabGo.AddComponent<MeshRenderer>();
-            slabRenderer.sharedMaterial = slab;
-
-            // Hex tiles on top.
-            Mesh tileMesh = HexPrism(0.92f, 0.12f, 0f);
-            float tileR = 1.0f;
-            float colStep = 1.5f * tileR;
-            float rowStep = Mathf.Sqrt(3f) * tileR;
-            int count = 0;
-            for (int col = -10; col <= 10; col++)
-            {
-                for (int row = -10; row <= 10; row++)
-                {
-                    float x = col * colStep;
-                    float z = row * rowStep + ((col & 1) != 0 ? rowStep * 0.5f : 0f);
-                    var p = new FixVec3(Fix.Milli((int)(x * 1000)), Fix.Zero, Fix.Milli((int)(z * 1000)));
-                    if (!Arena.IsInside(p, Fix.Milli(900))) continue;
-                    var tile = new GameObject("Tile");
-                    tile.transform.SetParent(Root.transform, false);
-                    tile.transform.localPosition = new Vector3(x, -0.12f, z);
-                    tile.AddComponent<MeshFilter>().sharedMesh = tileMesh;
-                    var mr = tile.AddComponent<MeshRenderer>();
-                    bool center = Mathf.Abs(x) < 0.1f && Mathf.Abs(z) < 0.1f;
-                    mr.sharedMaterial = center ? tileCenter : (((col + row) & 1) == 0 ? tileA : tileB);
-                    count++;
-                }
-            }
-
-            // Glowing rim along the six edges.
-            for (int i = 0; i < 6; i++)
-            {
-                Vector3 a = Corner(radius, i);
-                Vector3 b = Corner(radius, i + 1);
-                GameObject edge = MaterialFactory.Primitive(PrimitiveType.Cube, Root.transform, _edgeMaterial, "Edge");
-                edge.transform.localPosition = (a + b) * 0.5f + Vector3.up * 0.02f;
-                edge.transform.localRotation = Quaternion.LookRotation(b - a, Vector3.up);
-                edge.transform.localScale = new Vector3(0.14f, 0.1f, Vector3.Distance(a, b));
-                edge.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
-
-                GameObject pillar = MaterialFactory.Primitive(PrimitiveType.Cylinder, Root.transform, slab, "Pillar");
-                pillar.transform.localPosition = a * 1.0f + Vector3.down * 0.6f;
-                pillar.transform.localScale = new Vector3(0.7f, 1.2f, 0.7f);
-                GameObject crystal = MaterialFactory.Primitive(PrimitiveType.Sphere, Root.transform, _edgeMaterial, "Crystal");
-                crystal.transform.localPosition = a + Vector3.up * 0.9f;
-                crystal.transform.localScale = new Vector3(0.35f, 0.6f, 0.35f);
-                crystal.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
-            }
-
-            // Floating hex rocks in the void, for depth.
-            Material rock = MaterialFactory.Lit(new Color(0.13f, 0.11f, 0.19f), 0.15f);
-            Mesh rockMesh = HexPrism(1f, 1f, 0f);
-            var rng = new System.Random(7);
-            for (int i = 0; i < _floaters.Length; i++)
-            {
-                float ang = i / (float)_floaters.Length * Mathf.PI * 2f + (float)rng.NextDouble() * 0.3f;
-                float dist = 26f + (float)rng.NextDouble() * 30f;
-                float y = -12f + (float)rng.NextDouble() * 18f;
-                var go = new GameObject("Floater");
-                go.transform.SetParent(Root.transform, false);
-                go.transform.localPosition = new Vector3(Mathf.Sin(ang) * dist, y, Mathf.Cos(ang) * dist);
-                float s = 1.2f + (float)rng.NextDouble() * 3.5f;
-                go.transform.localScale = new Vector3(s, s * (0.3f + (float)rng.NextDouble()), s);
-                go.transform.localRotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
-                go.AddComponent<MeshFilter>().sharedMesh = rockMesh;
-                go.AddComponent<MeshRenderer>().sharedMaterial = rock;
-                _floaters[i] = go.transform;
-                _floaterBase[i] = go.transform.localPosition;
-            }
-
-            SetupLighting(parent);
+            bool stage = BuildLavaStage();
+            if (!stage) BuildFallbackFloor();
+            BuildSkyIslands();
+            BuildEmbers();
+            SetupLighting();
         }
 
         public void Update(float deltaTime)
         {
             _time += deltaTime;
-            for (int i = 0; i < _floaters.Length; i++)
+            if (_lavaMaterial != null)
             {
-                if (_floaters[i] == null) continue;
-                _floaters[i].localPosition = _floaterBase[i] + Vector3.up * Mathf.Sin(_time * 0.4f + i) * 0.6f;
-                _floaters[i].Rotate(0f, deltaTime * (4f + i % 5), 0f, Space.Self);
+                Vector2 flow = new Vector2(_time * 0.004f, _time * 0.0025f);
+                _lavaMaterial.mainTextureOffset = flow;
+                float pulse = 1f + Mathf.Sin(_time * 0.9f) * 0.15f;
+                _lavaMaterial.SetColor("_EmissionColor", new Color(2.2f, 0.75f, 0.18f) * pulse);
             }
-            float pulse = 2.2f + Mathf.Sin(_time * 1.6f) * 0.6f;
-            MaterialFactory.SetColor(_edgeMaterial, new Color(0.35f * pulse, 0.16f * pulse, pulse));
+            for (int i = 0; i < _skyIslands.Count; i++)
+            {
+                _skyIslands[i].localPosition = _skyIslandBase[i] + Vector3.up * Mathf.Sin(_time * 0.35f + i * 2f) * 0.8f;
+                _skyIslands[i].Rotate(0f, deltaTime * (1.5f + i), 0f, Space.Self);
+            }
+            if (_fallbackRim != null)
+            {
+                float pulse = 2.2f + Mathf.Sin(_time * 1.6f) * 0.6f;
+                MaterialFactory.SetColor(_fallbackRim, new Color(pulse, 0.45f * pulse, 0.12f * pulse));
+            }
         }
 
-        private static Vector3 Corner(float radius, int index)
+        // ------------------------------------------------------------------ Floating islands (scenery)
+
+        private readonly System.Collections.Generic.List<Transform> _skyIslands = new System.Collections.Generic.List<Transform>();
+        private readonly System.Collections.Generic.List<Vector3> _skyIslandBase = new System.Collections.Generic.List<Vector3>();
+
+        private void BuildSkyIslands()
         {
-            float a = (30f + 60f * index) * Mathf.Deg2Rad;
-            return new Vector3(Mathf.Sin(a) * radius, 0f, Mathf.Cos(a) * radius);
+            GameObject prefab = Resources.Load<GameObject>("Arena/Island/floating_island_2k");
+            if (prefab == null) return;
+            AddSkyIsland(prefab, 40f, 50f, 15f, 10f);
+            AddSkyIsland(prefab, 205f, 53f, 23f, 6.5f);
         }
 
-        /// <summary>Hexagonal prism with corners at 30 + 60k degrees, top face at topY.</summary>
-        public static Mesh HexPrism(float radius, float height, float topY)
+        private void AddSkyIsland(GameObject prefab, float angleDegrees, float distance, float height, float width)
         {
+            var holder = new GameObject("Sky Island").transform;
+            holder.SetParent(Root.transform, false);
+            GameObject instance = Object.Instantiate(prefab, holder, false);
+            RemoveColliders(instance);
+            Renderer top = FindRenderer(instance.transform, "island");
+            if (top == null) top = LargestRenderer(instance.transform);
+            float measured = top != null ? top.bounds.size.x : IslandWidthFbx;
+            holder.localScale = Vector3.one * (width / Mathf.Max(measured, 1e-4f));
+            float a = angleDegrees * Mathf.Deg2Rad;
+            holder.localPosition = new Vector3(Mathf.Sin(a) * distance, height, Mathf.Cos(a) * distance);
+            holder.localRotation = Quaternion.Euler(0f, angleDegrees * 3f, 0f);
+            foreach (Renderer r in instance.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = ShadowCastingMode.Off;
+            _skyIslands.Add(holder);
+            _skyIslandBase.Add(holder.localPosition);
+        }
+
+        /// <summary>Simple stone floor following the simulation's edge, used when the island model is missing.</summary>
+        private void BuildFallbackFloor()
+        {
+            int n = Arena.EdgeSamples;
+            var top = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                int angle = i * FixMath.FullTurn / n;
+                float r = Arena.EdgeRadius(angle).ToFloat() + 0.25f;
+                float a = i * Mathf.PI * 2f / n;
+                top[i] = new Vector3(Mathf.Sin(a) * r, 0f, Mathf.Cos(a) * r);
+            }
+
             var verts = new System.Collections.Generic.List<Vector3>();
             var tris = new System.Collections.Generic.List<int>();
-            float bottom = topY - height;
-
-            // Top face.
-            int topCenter = verts.Count;
-            verts.Add(new Vector3(0, topY, 0));
-            for (int i = 0; i < 6; i++) verts.Add(Corner(radius, i) + Vector3.up * topY);
-            for (int i = 0; i < 6; i++)
+            verts.Add(new Vector3(0f, -0.02f, 0f));
+            for (int i = 0; i < n; i++) verts.Add(top[i] + Vector3.down * 0.02f);
+            for (int i = 0; i < n; i++)
             {
-                tris.Add(topCenter);
-                tris.Add(topCenter + 1 + i);
-                tris.Add(topCenter + 1 + (i + 1) % 6);
+                tris.Add(0);
+                tris.Add(1 + i);
+                tris.Add(1 + (i + 1) % n);
             }
-
-            // Bottom face.
-            int botCenter = verts.Count;
-            verts.Add(new Vector3(0, bottom, 0));
-            for (int i = 0; i < 6; i++) verts.Add(Corner(radius, i) + Vector3.up * bottom);
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < n; i++)
             {
-                tris.Add(botCenter);
-                tris.Add(botCenter + 1 + (i + 1) % 6);
-                tris.Add(botCenter + 1 + i);
-            }
-
-            // Sides (separate vertices for flat shading).
-            for (int i = 0; i < 6; i++)
-            {
-                Vector3 a = Corner(radius, i);
-                Vector3 b = Corner(radius, i + 1);
+                Vector3 a = top[i];
+                Vector3 c = top[(i + 1) % n];
                 int s = verts.Count;
-                verts.Add(a + Vector3.up * topY);
-                verts.Add(b + Vector3.up * topY);
-                verts.Add(b + Vector3.up * bottom);
-                verts.Add(a + Vector3.up * bottom);
+                verts.Add(a + Vector3.down * 0.02f);
+                verts.Add(c + Vector3.down * 0.02f);
+                verts.Add(c * 0.55f + Vector3.down * 6f);
+                verts.Add(a * 0.55f + Vector3.down * 6f);
                 tris.Add(s);
                 tris.Add(s + 2);
                 tris.Add(s + 1);
@@ -171,44 +132,213 @@ namespace HEXBOUND.Presentation
                 tris.Add(s + 3);
                 tris.Add(s + 2);
             }
-
             var mesh = new Mesh();
             mesh.SetVertices(verts);
             mesh.SetTriangles(tris, 0);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
-            return mesh;
+
+            var go = new GameObject("Fallback Floor");
+            go.transform.SetParent(Root.transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = MaterialFactory.Lit(new Color(0.22f, 0.19f, 0.18f), 0.25f);
+
+            _fallbackRim = MaterialFactory.Glow(new Color(2.2f, 1f, 0.25f));
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 a = top[i];
+                Vector3 c = top[(i + 1) % n];
+                GameObject edge = MaterialFactory.Primitive(PrimitiveType.Cube, Root.transform, _fallbackRim, "Edge");
+                edge.transform.localPosition = (a + c) * 0.5f;
+                edge.transform.localRotation = Quaternion.LookRotation(c - a, Vector3.up);
+                edge.transform.localScale = new Vector3(0.12f, 0.08f, Vector3.Distance(a, c));
+                edge.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            }
         }
 
-        private void SetupLighting(Transform parent)
+        // ------------------------------------------------------------------ Lava stage (background)
+
+        private bool BuildLavaStage()
+        {
+            GameObject prefab = Resources.Load<GameObject>("Arena/LavaStage/Lava_Stage");
+            if (prefab == null) return false;
+
+            var holder = new GameObject("Lava Stage").transform;
+            holder.SetParent(Root.transform, false);
+            GameObject instance = Object.Instantiate(prefab, holder, false);
+            instance.name = "Lava Stage Model";
+            RemoveColliders(instance);
+
+            // Bring the model to FBX units (whatever unit scale Unity imported with).
+            Renderer outer = FindRenderer(instance.transform, "outer");
+            float measured = outer != null ? outer.bounds.size.x : 0f;
+            float s = measured > 1e-4f ? LavaOuterWidthFbx / measured : 1f;
+            holder.localScale = Vector3.one * s;
+
+            // The simulation's edge table and spike positions assume Unity mirrored the FBX X axis on import.
+            // If this import did not, mirror the visual so the platform edge and spikes still match the rules.
+            Renderer platform = FindRenderer(instance.transform, "base");
+            if (platform != null && platform.bounds.center.x > LavaBaseCenterXFbx * 0.5f) holder.localScale = new Vector3(-s, s, s);
+
+            holder.localPosition = new Vector3(0f, -LavaFloorFbx, 0f);
+
+            foreach (Renderer r in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                bool isPlatform = platform != null && r == platform;
+                r.shadowCastingMode = isPlatform ? ShadowCastingMode.On : ShadowCastingMode.Off;
+                r.receiveShadows = true;
+            }
+
+            Renderer lava = FindRenderer(instance.transform, "lower");
+            if (lava != null)
+            {
+                _lavaMaterial = lava.material;
+                Texture tex = _lavaMaterial.mainTexture;
+                _lavaMaterial.EnableKeyword("_EMISSION");
+                _lavaMaterial.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                if (tex != null && _lavaMaterial.HasProperty("_EmissionMap") && _lavaMaterial.GetTexture("_EmissionMap") == null) _lavaMaterial.SetTexture("_EmissionMap", tex);
+                _lavaMaterial.SetColor("_EmissionColor", new Color(2.2f, 0.75f, 0.18f));
+            }
+
+            // Sky dome: show its texture as-is, unaffected by lights.
+            Renderer sky = FindRenderer(instance.transform, "sky");
+            if (sky != null)
+            {
+                Texture tex = sky.sharedMaterial != null ? sky.sharedMaterial.mainTexture : null;
+                Material unlit = MaterialFactory.Glow(new Color(0.9f, 0.75f, 0.7f));
+                Material m = new Material(unlit);
+                if (tex != null)
+                {
+                    m.mainTexture = tex;
+                    m.SetTexture("_BaseMap", tex);
+                }
+                m.SetFloat("_Cull", 0f);
+                sky.sharedMaterial = m;
+                sky.receiveShadows = false;
+            }
+            return true;
+        }
+
+        // ------------------------------------------------------------------ Atmosphere
+
+        private void BuildEmbers()
+        {
+            var go = new GameObject("Embers");
+            go.transform.SetParent(Root.transform, false);
+            go.transform.localPosition = new Vector3(0f, Arena.LavaHeight.ToFloat() - 0.5f, 0f);
+            ParticleSystem ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            ParticleSystem.MainModule main = ps.main;
+            main.loop = true;
+            main.duration = 10f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(7f, 12f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.22f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.55f, 0.15f), new Color(1f, 0.3f, 0.05f));
+            main.maxParticles = 700;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = -0.05f;
+
+            ParticleSystem.EmissionModule emission = ps.emission;
+            emission.rateOverTime = 45f;
+
+            ParticleSystem.ShapeModule shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(70f, 1f, 70f);
+
+            ParticleSystem.NoiseModule noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.8f;
+            noise.frequency = 0.3f;
+
+            ParticleSystem.ColorOverLifetimeModule col = ps.colorOverLifetime;
+            col.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(1f, 0.4f, 0.1f), 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.1f), new GradientAlphaKey(0.8f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            col.color = gradient;
+
+            ParticleSystemRenderer renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.sharedMaterial = ParticleMaterial(new Color(3f, 1.4f, 0.4f));
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+
+            ps.Play();
+        }
+
+        private static Material ParticleMaterial(Color hdr)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null) return MaterialFactory.Additive(hdr);
+            var m = new Material(shader);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 2f);
+            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)BlendMode.One);
+            m.SetFloat("_ZWrite", 0f);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)RenderQueue.Transparent;
+            m.SetColor("_BaseColor", hdr);
+            return m;
+        }
+
+        private void SetupLighting()
         {
             var sunGo = new GameObject("Key Light");
             sunGo.transform.SetParent(Root.transform, false);
-            sunGo.transform.rotation = Quaternion.Euler(52f, -35f, 0f);
+            sunGo.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
             Light sun = sunGo.AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.color = new Color(1f, 0.93f, 0.86f);
-            sun.intensity = 1.35f;
+            sun.color = new Color(1f, 0.86f, 0.74f);
+            sun.intensity = 1.25f;
             sun.shadows = LightShadows.Soft;
 
             var rimGo = new GameObject("Rim Light");
             rimGo.transform.SetParent(Root.transform, false);
-            rimGo.transform.rotation = Quaternion.Euler(20f, 150f, 0f);
+            rimGo.transform.rotation = Quaternion.Euler(18f, 150f, 0f);
             Light rim = rimGo.AddComponent<Light>();
             rim.type = LightType.Directional;
             rim.color = new Color(0.55f, 0.4f, 1f);
-            rim.intensity = 0.6f;
+            rim.intensity = 0.45f;
             rim.shadows = LightShadows.None;
 
+            // Lava glow from below, lighting the underside of the island and the fighters' legs.
+            var underGo = new GameObject("Lava Up Light");
+            underGo.transform.SetParent(Root.transform, false);
+            underGo.transform.rotation = Quaternion.Euler(-70f, 20f, 0f);
+            Light under = underGo.AddComponent<Light>();
+            under.type = LightType.Directional;
+            under.color = new Color(1f, 0.42f, 0.12f);
+            under.intensity = 0.55f;
+            under.shadows = LightShadows.None;
+
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * Mathf.PI * 0.5f + 0.4f;
+                var pointGo = new GameObject("Lava Glow " + i);
+                pointGo.transform.SetParent(Root.transform, false);
+                pointGo.transform.localPosition = new Vector3(Mathf.Sin(a) * 18f, -6f, Mathf.Cos(a) * 18f);
+                Light p = pointGo.AddComponent<Light>();
+                p.type = LightType.Point;
+                p.color = new Color(1f, 0.45f, 0.12f);
+                p.range = 26f;
+                p.intensity = 4f;
+                p.shadows = LightShadows.None;
+            }
+
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.32f, 0.3f, 0.45f);
-            RenderSettings.ambientEquatorColor = new Color(0.2f, 0.17f, 0.3f);
-            RenderSettings.ambientGroundColor = new Color(0.08f, 0.06f, 0.12f);
+            RenderSettings.ambientSkyColor = new Color(0.36f, 0.27f, 0.3f);
+            RenderSettings.ambientEquatorColor = new Color(0.3f, 0.16f, 0.1f);
+            RenderSettings.ambientGroundColor = new Color(0.35f, 0.12f, 0.04f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.06f, 0.04f, 0.11f);
-            RenderSettings.fogStartDistance = 25f;
-            RenderSettings.fogEndDistance = 95f;
+            RenderSettings.fogColor = new Color(0.16f, 0.06f, 0.04f);
+            RenderSettings.fogStartDistance = 45f;
+            RenderSettings.fogEndDistance = 170f;
             RenderSettings.skybox = null;
 
             var volumeGo = new GameObject("Post Processing");
@@ -218,17 +348,63 @@ namespace HEXBOUND.Presentation
             volume.priority = 10f;
             VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
             Bloom bloom = profile.Add<Bloom>(true);
-            bloom.intensity.Override(1.1f);
+            bloom.intensity.Override(1.15f);
             bloom.threshold.Override(0.95f);
-            bloom.scatter.Override(0.65f);
+            bloom.scatter.Override(0.68f);
             Tonemapping tonemapping = profile.Add<Tonemapping>(true);
             tonemapping.mode.Override(TonemappingMode.ACES);
             Vignette vignette = profile.Add<Vignette>(true);
-            vignette.intensity.Override(0.28f);
+            vignette.intensity.Override(0.3f);
             ColorAdjustments color = profile.Add<ColorAdjustments>(true);
-            color.saturation.Override(8f);
-            color.contrast.Override(8f);
+            color.saturation.Override(10f);
+            color.contrast.Override(10f);
+            color.colorFilter.Override(new Color(1f, 0.95f, 0.9f));
             volume.sharedProfile = profile;
+        }
+
+        // ------------------------------------------------------------------ Helpers
+
+        private static void RemoveColliders(GameObject go)
+        {
+            foreach (Collider c in go.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+        }
+
+        private static Transform FindTransform(Transform root, string name)
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (string.Equals(t.name, name, System.StringComparison.OrdinalIgnoreCase)) return t;
+            }
+            return null;
+        }
+
+        private static Renderer FindRenderer(Transform root, string name)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (string.Equals(r.name, name, System.StringComparison.OrdinalIgnoreCase)) return r;
+            }
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r.name.IndexOf(name, System.StringComparison.OrdinalIgnoreCase) >= 0) return r;
+            }
+            return null;
+        }
+
+        private static Renderer LargestRenderer(Transform root)
+        {
+            Renderer best = null;
+            float size = 0f;
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                float s = r.bounds.size.sqrMagnitude;
+                if (s > size)
+                {
+                    size = s;
+                    best = r;
+                }
+            }
+            return best;
         }
     }
 }

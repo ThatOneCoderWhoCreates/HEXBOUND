@@ -52,6 +52,7 @@ namespace HEXBOUND.Simulation
         public int CooldownUltimate;
         public int CooldownRecharge;
         public int CooldownDodge;
+        public int CooldownHeal;
 
         public BuffId Buff;
         public int BuffTicks;

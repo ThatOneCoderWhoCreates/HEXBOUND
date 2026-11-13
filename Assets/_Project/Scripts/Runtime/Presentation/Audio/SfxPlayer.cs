@@ -26,16 +26,41 @@ namespace HEXBOUND.Presentation
         Denied,
         Announce,
         Explosion,
+        Footstep,
+        BodySlam,
+        ProjectileHit,
+        Clash,
     }
 
     /// <summary>
-    /// Placeholder sound effects synthesized in code (no audio files needed).
-    /// Replace with real clips later by swapping the clip table.
+    /// Sound effects. Recorded clips are loaded from Resources/Audio/SFX (Kenney Impact Sounds, CC0),
+    /// matched by file name prefix, with a random variant each time. Any sound without a recorded clip
+    /// uses a placeholder synthesized in code.
     /// </summary>
     public sealed class SfxPlayer
     {
         private const int SampleRate = 44100;
         private readonly Dictionary<Sfx, AudioClip> _clips = new Dictionary<Sfx, AudioClip>();
+        private readonly Dictionary<Sfx, AudioClip[]> _variants = new Dictionary<Sfx, AudioClip[]>();
+
+        /// <summary>Which recorded clips (file name prefix) are used for each sound.</summary>
+        private static readonly KeyValuePair<Sfx, string>[] PackMap =
+        {
+            new KeyValuePair<Sfx, string>(Sfx.Hit, "impactPunch_medium"),
+            new KeyValuePair<Sfx, string>(Sfx.HitHeavy, "impactPunch_heavy"),
+            new KeyValuePair<Sfx, string>(Sfx.Block, "impactMetal_medium"),
+            new KeyValuePair<Sfx, string>(Sfx.Parry, "impactBell_heavy"),
+            new KeyValuePair<Sfx, string>(Sfx.GuardBreak, "impactGlass_heavy"),
+            new KeyValuePair<Sfx, string>(Sfx.Jump, "impactSoft_medium"),
+            new KeyValuePair<Sfx, string>(Sfx.Land, "impactSoft_heavy"),
+            new KeyValuePair<Sfx, string>(Sfx.Footstep, "footstep_concrete"),
+            new KeyValuePair<Sfx, string>(Sfx.BodySlam, "impactPlank_medium"),
+            new KeyValuePair<Sfx, string>(Sfx.ProjectileHit, "impactGlass_light"),
+            new KeyValuePair<Sfx, string>(Sfx.Clash, "impactGlass_medium"),
+            new KeyValuePair<Sfx, string>(Sfx.UiClick, "impactGeneric_light"),
+            new KeyValuePair<Sfx, string>(Sfx.UiBack, "impactWood_light"),
+            new KeyValuePair<Sfx, string>(Sfx.Denied, "impactTin_medium"),
+        };
         private readonly AudioSource[] _sources;
         private int _next;
         private System.Random _random = new System.Random(3);
@@ -72,12 +97,34 @@ namespace HEXBOUND.Presentation
             _clips[Sfx.Denied] = Tone("denied", 0.18f, 180f, 160f, 0.3f, 0.5f);
             _clips[Sfx.Announce] = Tone("announce", 0.6f, 330f, 660f, 0.35f, 0.3f);
             _clips[Sfx.Explosion] = Impact("explosion", 0.6f, 60f, 1f, 0.9f);
+            _clips[Sfx.Footstep] = Noise("footstep", 0.06f, 900f, 300f, 0.15f, 0f);
+            _clips[Sfx.BodySlam] = Impact("bodySlam", 0.3f, 80f, 0.8f, 0.7f);
+            _clips[Sfx.ProjectileHit] = Impact("projectileHit", 0.2f, 200f, 0.6f, 0.5f);
+            _clips[Sfx.Clash] = Impact("clash", 0.35f, 120f, 1f, 0.7f);
+            LoadPack();
+        }
+
+        private void LoadPack()
+        {
+            AudioClip[] all = Resources.LoadAll<AudioClip>("Audio/SFX");
+            if (all == null || all.Length == 0) return;
+            foreach (KeyValuePair<Sfx, string> entry in PackMap)
+            {
+                var matches = new List<AudioClip>();
+                foreach (AudioClip clip in all)
+                {
+                    if (clip != null && clip.name.StartsWith(entry.Value, System.StringComparison.OrdinalIgnoreCase)) matches.Add(clip);
+                }
+                if (matches.Count > 0) _variants[entry.Key] = matches.ToArray();
+            }
         }
 
         public void Play(Sfx sfx, float volume = 1f, float pitchVariance = 0.06f)
         {
             AudioClip clip;
-            if (!_clips.TryGetValue(sfx, out clip)) return;
+            AudioClip[] variants;
+            if (_variants.TryGetValue(sfx, out variants)) clip = variants[_random.Next(variants.Length)];
+            else if (!_clips.TryGetValue(sfx, out clip)) return;
             AudioSource src = _sources[_next];
             _next = (_next + 1) % _sources.Length;
             src.pitch = 1f + ((float)_random.NextDouble() * 2f - 1f) * pitchVariance;

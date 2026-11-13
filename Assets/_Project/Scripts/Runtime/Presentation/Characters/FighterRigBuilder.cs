@@ -48,7 +48,7 @@ namespace HEXBOUND.Presentation
                 AccentMaterial = MaterialFactory.Glow(accentHdr),
             };
 
-            GameObject prefab = Resources.Load<GameObject>("Fighters/" + character.Weapon);
+            GameObject prefab = string.IsNullOrEmpty(character.ModelName) ? null : Resources.Load<GameObject>("Fighters/" + character.ModelName);
             bool built = false;
             if (prefab != null)
             {
@@ -218,7 +218,21 @@ namespace HEXBOUND.Presentation
         {
             Color glow = baseColor * 4f;
             glow.a = 1f;
-            if (weapon == "Wand")
+            if (weapon == "Fists")
+            {
+                Material glove = MaterialFactory.Lit(new Color(0.75f, 0.1f, 0.1f), 0.6f);
+                GameObject g = MaterialFactory.Primitive(PrimitiveType.Sphere, hand, glove, "Glove R");
+                g.transform.localPosition = new Vector3(0.06f, 0, 0) * h;
+                g.transform.localScale = Vector3.one * 0.15f * h;
+                Transform left = hand.parent != null && hand.parent.parent != null && hand.parent.parent.parent != null ? hand.parent.parent.parent.Find("L UpperArm/L ForeArm/L Hand") : null;
+                if (left != null)
+                {
+                    GameObject gl = MaterialFactory.Primitive(PrimitiveType.Sphere, left, glove, "Glove L");
+                    gl.transform.localPosition = new Vector3(-0.06f, 0, 0) * h;
+                    gl.transform.localScale = Vector3.one * 0.15f * h;
+                }
+            }
+            else if (weapon == "Wand")
             {
                 GameObject rod = MaterialFactory.Primitive(PrimitiveType.Cylinder, hand, MaterialFactory.Lit(new Color(0.25f, 0.15f, 0.1f), 0.5f), "Wand");
                 rod.transform.localPosition = new Vector3(0.2f, 0, 0) * h;

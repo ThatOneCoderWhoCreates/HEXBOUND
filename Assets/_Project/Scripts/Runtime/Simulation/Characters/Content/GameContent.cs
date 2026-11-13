@@ -16,10 +16,11 @@ namespace HEXBOUND.Simulation
         {
             var b = new ContentBuilder();
             var common = CommonMoves.Build(b);
+            // The Staff fighter (StaffFighter.cs) is kept for later but is not in the roster until it has a model.
             Characters = new[]
             {
                 SwordFighter.Build(b, common),
-                StaffFighter.Build(b, common),
+                BoxerFighter.Build(b, common),
                 WandFighter.Build(b, common),
             };
             for (int i = 0; i < Characters.Length; i++)
@@ -58,7 +59,18 @@ namespace HEXBOUND.Simulation
                 h.Add(c.Gravity);
                 h.Add(c.KnockbackScale);
                 h.Add(c.BuffSpeedScale);
+                h.Add(c.Name.Length);
             }
+            for (int i = 0; i < Arena.EdgeSamples; i++)
+            {
+                h.Add(Arena.EdgeRadius(i * (FixMath.FullTurn / Arena.EdgeSamples)));
+            }
+            for (int i = 0; i < Arena.Pillars.Length; i++)
+            {
+                h.Add(Arena.Pillars[i]);
+            }
+            h.Add(Arena.PillarRadius);
+            h.Add(Arena.PillarHeight);
             for (int i = 0; i < Moves.Length; i++)
             {
                 MoveDef m = Moves[i];

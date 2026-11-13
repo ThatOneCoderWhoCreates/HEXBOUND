@@ -142,6 +142,7 @@ namespace HEXBOUND.Simulation
             h.Add(f.CooldownUltimate);
             h.Add(f.CooldownRecharge);
             h.Add(f.CooldownDodge);
+            h.Add(f.CooldownHeal);
             h.Add((int)f.Buff);
             h.Add(f.BuffTicks);
             h.Add(f.StunTicks);

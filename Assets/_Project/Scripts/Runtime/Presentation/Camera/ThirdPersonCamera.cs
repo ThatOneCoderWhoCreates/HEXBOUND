@@ -29,9 +29,9 @@ namespace HEXBOUND.Presentation
             Camera = go.AddComponent<Camera>();
             Camera.fieldOfView = 58f;
             Camera.nearClipPlane = 0.1f;
-            Camera.farClipPlane = 220f;
+            Camera.farClipPlane = 450f;
             Camera.clearFlags = CameraClearFlags.SolidColor;
-            Camera.backgroundColor = new Color(0.05f, 0.035f, 0.09f);
+            Camera.backgroundColor = new Color(0.12f, 0.04f, 0.03f);
             go.AddComponent<AudioListener>();
             UniversalAdditionalCameraData data = go.GetComponent<UniversalAdditionalCameraData>();
             if (data == null) data = go.AddComponent<UniversalAdditionalCameraData>();
@@ -47,11 +47,11 @@ namespace HEXBOUND.Presentation
         /// <summary>Menu view: slow orbit around the arena.</summary>
         public void UpdateMenu(float deltaTime)
         {
-            Yaw += deltaTime * 6f;
-            Pitch = 22f;
-            Vector3 focus = new Vector3(0f, 1f, 0f);
+            Yaw += deltaTime * 5f;
+            Pitch = 17f;
+            Vector3 focus = new Vector3(0f, -1.5f, 0f);
             Quaternion rot = Quaternion.Euler(Pitch, Yaw, 0f);
-            Camera.transform.position = focus - rot * Vector3.forward * 19f;
+            Camera.transform.position = focus - rot * Vector3.forward * 27f;
             Camera.transform.rotation = rot;
             _hasFocus = false;
         }
@@ -85,7 +85,7 @@ namespace HEXBOUND.Presentation
 
             Quaternion rot = Quaternion.Euler(Pitch, Yaw, 0f);
             Vector3 pos = _focus - rot * Vector3.forward * Distance;
-            if (pos.y < 0.35f && Mathf.Abs(player.x) < 14f && Mathf.Abs(player.z) < 14f) pos.y = 0.35f;
+            if (pos.y < 0.35f && Mathf.Abs(player.x) < 13.5f && Mathf.Abs(player.z) < 13.5f) pos.y = 0.35f;
 
             _shake = Mathf.MoveTowards(_shake, 0f, deltaTime * 2.5f);
             if (_shake > 0f)

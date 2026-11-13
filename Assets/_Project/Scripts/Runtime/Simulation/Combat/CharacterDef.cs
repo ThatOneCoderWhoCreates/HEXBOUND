@@ -2,6 +2,13 @@ using System;
 
 namespace HEXBOUND.Simulation
 {
+    /// <summary>How the fighter stands and holds its hands (presentation only).</summary>
+    public enum FighterStance : byte
+    {
+        Weapon,
+        Boxer,
+    }
+
     /// <summary>Text shown in menus and the HUD for one ability.</summary>
     public sealed class AbilityInfo
     {
@@ -17,6 +24,9 @@ namespace HEXBOUND.Simulation
         public string Name;
         public string Title;
         public string Weapon;
+        /// <summary>Model file name in Resources/Fighters (without extension). Empty uses the placeholder body.</summary>
+        public string ModelName = string.Empty;
+        public FighterStance Stance = FighterStance.Weapon;
         public string Description;
 
         public int MaxHealth = 1000;
@@ -41,6 +51,7 @@ namespace HEXBOUND.Simulation
         public MoveDef Dodge;
         public MoveDef AirDash;
         public MoveDef Recharge;
+        public MoveDef Heal;
 
         /// <summary>Moves that replace the normal ones while the ultimate buff is active (null keeps the normal move).</summary>
         public BuffId UltimateBuff = BuffId.None;

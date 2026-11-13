@@ -125,6 +125,12 @@ namespace HEXBOUND.Simulation
                 }
             }
 
+            if (me.Health < c.MaxHealth * 2 / 5 && dist > Mid && me.CooldownHeal == 0)
+            {
+                _pulse = InputButtons.Heal;
+                return;
+            }
+
             if (me.Magic < 160 && dist > Mid && me.CooldownRecharge == 0)
             {
                 _pulse = InputButtons.Recharge;

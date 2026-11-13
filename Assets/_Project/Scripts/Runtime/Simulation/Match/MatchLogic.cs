@@ -140,6 +140,7 @@ namespace HEXBOUND.Simulation
                 f.CooldownSkill2 = 0;
                 f.CooldownUltimate = 0;
                 f.CooldownRecharge = 0;
+                f.CooldownHeal = 0;
             }
         }
     }

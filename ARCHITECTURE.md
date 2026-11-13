@@ -60,11 +60,12 @@ Dependency rules:
 - **Game state:** one `GameState` object holding everything that can change during a match: fighter positions, velocities, current move, frame counter inside the move, health, stun timers, round state, timer, RNG (random number generator) seed. It is made of plain value data so it can be copied quickly.
 - **Snapshots:** the netcode stores the last N `GameState` copies in a ring buffer (N = max rollback window, proposed 8 frames).
 - **Checksums:** a deterministic hash of `GameState`, compared between peers every few frames to detect desyncs.
-- **Collision:** custom and simple. Pushboxes (keep fighters apart), hurtboxes (where a fighter can be hit) and hitboxes (where an attack hits) as capsules and spheres. The hexagonal arena boundary is six half-planes. No PhysX.
+- **Collision:** custom and simple. Pushboxes (keep fighters apart), hurtboxes (where a fighter can be hit) and hitboxes (where an attack hits) as capsules and spheres. No PhysX.
+- **Arena boundary (as built):** the island's top edge, stored in `Simulation/Collision/Arena.cs` as a table of 72 fixed-point radii (one every 5 degrees, interpolated between). The table was measured from `floating_island_2k.fbx` (scale 0.0105, minus a 0.25 unit margin; Unity's FBX import mirrors X, which the table accounts for). `ArenaView` scales and places the island model to match the table and mirrors it if an import did not. The table is part of the content hash.
 - **Movement (Approved: free 3D movement):** fighters move on the arena floor plane (X and Z) in any direction and rotate to face their movement direction. Attacks can snap facing toward the opponent within a set angle and range (soft targeting). Vertical movement (jumps, launches) uses the Y axis with simple custom gravity.
 - **Input frame:** the simulation never sees the camera. The Input layer converts stick or WASD input into a world-space direction using the local camera's yaw, then quantizes it into the InputFrame (proposed: 8-bit angle, 256 directions, plus a 2-bit magnitude for walk or run, plus button bits). Both peers receive identical integer data, so movement stays deterministic.
 - **Character logic:** a state machine per fighter (Idle, Walk, Dash, Attack, Block, Hitstun, Blockstun, Knockdown, and so on) driven by frame data.
-- **Static data (as built):** fighters, moves and projectiles are defined in C# content files in `Simulation/Characters/Content/` (`SwordFighter.cs`, `StaffFighter.cs`, `WandFighter.cs`, `CommonMoves.cs`), built once in a fixed order by `GameContent`. Values use integer thousandths (`M(1500)` is 1.5), so no floats are involved. `GameContent.ContentHash` covers all numbers; online peers refuse to play if their hashes differ. Moving this data to ScriptableObjects is possible later, but code keeps it deterministic and easy to review.
+- **Static data (as built):** fighters, moves and projectiles are defined in C# content files in `Simulation/Characters/Content/` (`SwordFighter.cs`, `BoxerFighter.cs`, `WandFighter.cs`, `CommonMoves.cs`; `StaffFighter.cs` is kept but not in the roster), built once in a fixed order by `GameContent`. Values use integer thousandths (`M(1500)` is 1.5), so no floats are involved. `GameContent.ContentHash` covers all numbers; online peers refuse to play if their hashes differ. Moving this data to ScriptableObjects is possible later, but code keeps it deterministic and easy to review.
 - **Events:** the simulation emits events (hit landed, block, round end) tagged with the tick they happened on. Presentation uses these to trigger VFX and audio.
 
 ### Where to change numbers
@@ -74,7 +75,7 @@ Dependency rules:
 | Damage, frame data, hitboxes, costs, cooldowns per fighter | `Simulation/Characters/Content/<Fighter>.cs` |
 | Dodge, grab, recharge (shared) | `Simulation/Characters/Content/CommonMoves.cs` |
 | Magic max, round time, parry window, chip damage, combo scaling, flight | `Simulation/Match/MatchRules.cs` (`GameConfig`) |
-| Arena size | `Simulation/Collision/Arena.cs` (must match the visuals in `Presentation/ArenaView.cs`, which reads it) |
+| Arena shape | `Simulation/Collision/Arena.cs` edge table (must match the island model placement in `Presentation/ArenaView.cs`) |
 
 Units: time in ticks (60 per second), distance in units (about 1 meter), speed in units per tick.
 
@@ -108,10 +109,11 @@ Units: time in ticks (60 per second), distance in units (about 1 meter), speed i
 
 - **Views:** each fighter has a view object that copies position and rotation from `GameState` every render frame (fixed-point converted to float only here).
 - **Animation (as built):** procedural. `FighterAnimator` builds a pose every frame from the fighter's state, move and move frame (limb directions, spine bend, whole-body tilt), blends toward it, and applies it through `PoseRig`, which aims each limb at a direction. Because poses come from the state, they are always right after a rollback. Bones are found by name, so imported rigs (3ds Max Biped, Character Creator, Mixamo) work without setup. Replacing this with real animation clips later should keep the rule that the pose is chosen from simulation state.
-- **Models:** `FighterRigBuilder` loads `Resources/Fighters/<Weapon>` (Sword, Staff, Wand). It turns the model to face +Z (from the arm positions), scales it to the fighter's height, and puts its feet on the floor. If no model exists, or bones are missing, it builds a placeholder body from primitives. `.glb` files import through the glTFast package.
+- **Models:** `FighterRigBuilder` loads `Resources/Fighters/<ModelName>` (currently Sword, Boxer, Wizard; set per fighter in its content file). It turns the model to face +Z (from the arm positions), scales it to the fighter's height, and puts its feet on the floor. If no model exists, or bones are missing, it builds a placeholder body from primitives. `.glb` files import through the glTFast package.
 - **VFX and audio:** triggered from simulation events. Each event has a unique key (tick + type + fighter), so a rollback that replays the same event does not play it twice, and an event that is rolled back can be cancelled.
 - **Camera (as built):** a small custom orbit camera (`Presentation/Camera/ThirdPersonCamera.cs`) behind the local fighter, rotated with the mouse or right stick (Genshin Impact style), with lock-on framing and screen shake. Cinemachine is installed but not used yet. Camera state is local only and is never sent over the network or rolled back.
 - **Rendering:** URP with the existing `PC_RPAsset` for Windows. The existing `Mobile_RPAsset` is left in place but unused.
+- **Arena visuals (as built):** `ArenaView` loads `Resources/Arena/Island/floating_island_2k.fbx` (fighting floor) and `Resources/Arena/LavaStage/Lava_Stage.fbx` (background, node `base` hidden, scaled 3x, placed 35 units below the floor). Adds lava texture flow and glow, an unlit sky dome, rising ember particles, lava up-lights, warm fog and post-processing. Falls back to a plain floor shaped like the edge table if the models are missing.
 
 ## 7. Scenes and flow (as built)
 

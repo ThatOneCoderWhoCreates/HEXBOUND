@@ -16,6 +16,8 @@ namespace HEXBOUND.Presentation
         public bool ShowHitboxes;
 
         private readonly Transform _root;
+        private readonly SfxPlayer _sfx;
+        private int _localIndex;
         private readonly List<GameObject> _debugShapes = new List<GameObject>();
         private Material _hurtMaterial;
         private Material _hitMaterial;
@@ -24,6 +26,7 @@ namespace HEXBOUND.Presentation
         {
             _root = new GameObject("Match").transform;
             _root.SetParent(parent, false);
+            _sfx = sfx;
             Effects = new EffectsPlayer(_root, sfx);
         }
 
@@ -35,6 +38,7 @@ namespace HEXBOUND.Presentation
         public void Build(GameState state, int localIndex)
         {
             Clear();
+            _localIndex = localIndex;
             for (int i = 0; i < 2; i++)
             {
                 CharacterDef c = GameContent.GetCharacter(state.Fighters[i].CharacterId);
@@ -64,6 +68,7 @@ namespace HEXBOUND.Presentation
             for (int i = 0; i < 2; i++)
             {
                 Fighters[i].Sync(state, ref state.Fighters[i], alpha, deltaTime);
+                if (Fighters[i].StepThisFrame) _sfx.Play(Sfx.Footstep, i == _localIndex ? 0.35f : 0.22f, 0.1f);
             }
             if (events != null) Effects.HandleEvents(events, state.Tick);
             Effects.SyncProjectiles(state);

@@ -32,7 +32,7 @@ namespace HEXBOUND.UI
             UIFactory.Button(root, "CONTROLS", new Vector2(0, y -= 96), new Vector2(460, 78), () => Controls?.Invoke());
             UIFactory.Button(root, "QUIT", new Vector2(0, y -= 96), new Vector2(460, 78), () => Quit?.Invoke());
 
-            UIFactory.Label(root, "Prototype build. Placeholder art and sound.  Mage model: \"PBR Shadowkin Mage (Rigged)\" by Ferocious Industries, CC-BY-4.0.", 20, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, -500), new Vector2(1800, 40));
+            UIFactory.Label(root, "Prototype build. Placeholder animation and sound.  Models: \"PBR Shadowkin Mage (Rigged)\" by Ferocious Industries, \"Arcane Inspired Character\" by schs05 (both CC-BY-4.0, Sketchfab).", 20, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, -500), new Vector2(1800, 40));
         }
 
         public void Show(bool visible)

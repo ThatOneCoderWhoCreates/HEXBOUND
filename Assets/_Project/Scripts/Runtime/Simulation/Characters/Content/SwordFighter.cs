@@ -14,6 +14,7 @@ namespace HEXBOUND.Simulation
                 Name = "Kael",
                 Title = "The Hexblade",
                 Weapon = "Sword",
+                ModelName = "Sword",
                 Description = "Balanced swordsman. Closes distance fast and can switch to twin blades.",
                 MaxHealth = 1000,
                 MoveSpeed = ContentBuilder.M(105),

@@ -16,18 +16,71 @@ namespace HEXBOUND.Presentation
             public Vector3 ThighL, CalfL, ThighR, CalfR;
             public float SpinePitch, SpineYaw, SpineRoll;
             public float BodyPitch, BodyYaw, BodyRoll, BodyDrop;
+            // Directions in body space used to apply the spine and pelvis (procedural angles are converted to these).
+            public Vector3 SpineDir, NeckDir, PelvisUp, PelvisRight;
         }
 
         private readonly FighterVisual _v;
+        private readonly MocapLibrary _mocap;
+        private readonly MocapSampler _sampler;
+        private MocapFrame _frame;
+        private float _idleTime;
+        private float _mocapRunTime;
+        private Vector3 _restSpine = Vector3.up;
+        private Vector3 _restNeck = Vector3.up;
+        private Vector3 _restPelvisUp = Vector3.up;
+        private Vector3 _restPelvisRight = Vector3.right;
+        private float _restPelvisHeight = 0.95f;
         private Pose _current;
         private bool _initialized;
         private float _runPhase;
         private float _time;
         private float _spinYaw;
 
+        /// <summary>Run cycle phase in radians. A foot lands every half turn (pi).</summary>
+        public float RunPhase
+        {
+            get { return _runPhase; }
+        }
+
         public FighterAnimator(FighterVisual visual)
         {
             _v = visual;
+            CaptureRest();
+            _mocap = MocapLibrary.Shared;
+            if (_mocap != null)
+            {
+                _sampler = _mocap.CreateSampler(visual.Root);
+                if (!_sampler.Valid)
+                {
+                    _sampler.Dispose();
+                    _sampler = null;
+                }
+            }
+        }
+
+        /// <summary>Rest-pose directions of the target rig, so procedural poses stay relative to its natural posture.</summary>
+        private void CaptureRest()
+        {
+            PoseRig rig = _v.Rig;
+            Transform body = _v.Body;
+            if (rig == null) return;
+            Transform spine = rig.SpineLow != null ? rig.SpineLow : rig.Pelvis;
+            if (spine != null && rig.Chest != null && spine != rig.Chest) _restSpine = SafeDir(body.InverseTransformDirection(rig.Chest.position - spine.position), Vector3.up);
+            if (rig.Chest != null && rig.Head != null) _restNeck = SafeDir(body.InverseTransformDirection(rig.Head.position - rig.Chest.position), Vector3.up);
+            if (rig.Pelvis != null && rig.Chest != null) _restPelvisUp = SafeDir(body.InverseTransformDirection(rig.Chest.position - rig.Pelvis.position), Vector3.up);
+            if (rig.ThighL != null && rig.ThighR != null) _restPelvisRight = SafeDir(body.InverseTransformDirection(rig.ThighR.position - rig.ThighL.position), Vector3.right);
+            if (rig.Pelvis != null) _restPelvisHeight = Mathf.Max(0.2f, body.InverseTransformPoint(rig.Pelvis.position).y);
+        }
+
+        private static Vector3 SafeDir(Vector3 v, Vector3 fallback)
+        {
+            return v.sqrMagnitude > 1e-8f ? v.normalized : fallback;
+        }
+
+        public void Dispose()
+        {
+            if (_sampler != null) _sampler.Dispose();
         }
 
         private static Vector3 V(float x, float y, float z)
@@ -35,10 +88,13 @@ namespace HEXBOUND.Presentation
             return new Vector3(x, y, z).normalized;
         }
 
-        public void Animate(ref FighterState f, CharacterDef c, float deltaTime, float horizontalSpeed)
+        public void Animate(ref FighterState f, CharacterDef c, float deltaTime, float horizontalSpeed, bool celebrating = false)
         {
             _time += deltaTime;
+            _idleTime += deltaTime;
+            _mocapRunTime += deltaTime * Mathf.Clamp(horizontalSpeed / 7f, 0.4f, 1.6f);
             Pose target = BuildPose(ref f, c, deltaTime, horizontalSpeed);
+            ApplyMocap(ref target, ref f, c, celebrating);
             float rate = f.Action == FighterAction.Attack ? 34f : (f.Action == FighterAction.Move ? 16f : 13f);
             if (f.Action == FighterAction.HitStun || f.Action == FighterAction.Launched || f.Action == FighterAction.Parried) rate = 28f;
             if (!_initialized)
@@ -71,6 +127,54 @@ namespace HEXBOUND.Presentation
             a.BodyYaw = b.BodyYaw;
             a.BodyRoll = Mathf.Lerp(a.BodyRoll, b.BodyRoll, k);
             a.BodyDrop = Mathf.Lerp(a.BodyDrop, b.BodyDrop, k);
+            a.SpineDir = Vector3.Slerp(a.SpineDir, b.SpineDir, k);
+            a.NeckDir = Vector3.Slerp(a.NeckDir, b.NeckDir, k);
+            a.PelvisUp = Vector3.Slerp(a.PelvisUp, b.PelvisUp, k);
+            a.PelvisRight = Vector3.Slerp(a.PelvisRight, b.PelvisRight, k);
+        }
+
+        /// <summary>Overlays a motion-capture pose on the procedural one, for the body parts the clip covers.</summary>
+        private void ApplyMocap(ref Pose p, ref FighterState f, CharacterDef c, bool celebrating)
+        {
+            if (_sampler == null) return;
+            MocapChoice choice;
+            if (!MocapBindings.Resolve(_mocap, ref f, c, _idleTime, _mocapRunTime, celebrating, out choice)) return;
+            if (!_sampler.Sample(choice.Clip, choice.Time, choice.Mirror, ref _frame)) return;
+
+            if ((choice.Mask & MocapMask.Arms) != 0)
+            {
+                p.UpperArmL = _frame.UpperArmL;
+                p.ForeArmL = _frame.ForeArmL;
+                p.UpperArmR = _frame.UpperArmR;
+                p.ForeArmR = _frame.ForeArmR;
+            }
+            if ((choice.Mask & MocapMask.Legs) != 0)
+            {
+                p.ThighL = _frame.ThighL;
+                p.CalfL = _frame.CalfL;
+                p.ThighR = _frame.ThighR;
+                p.CalfR = _frame.CalfR;
+                p.PelvisUp = _frame.PelvisUp;
+                p.PelvisRight = _frame.PelvisRight;
+                p.BodyDrop = Mathf.Clamp(_restPelvisHeight * (1f - _frame.PelvisHeightRatio), -0.3f, _restPelvisHeight - 0.08f);
+            }
+            if ((choice.Mask & MocapMask.Spine) != 0)
+            {
+                p.SpineDir = _frame.SpineDir;
+                p.NeckDir = _frame.NeckDir;
+                p.SpineYaw = _frame.SpineYaw;
+            }
+            if (choice.FullBody)
+            {
+                p.BodyPitch = 0f;
+                p.BodyRoll = 0f;
+            }
+
+            if (f.Buff == BuffId.TwinBlades && f.Action == FighterAction.Attack && !choice.Mirror)
+            {
+                p.UpperArmL = new Vector3(-p.UpperArmR.x, p.UpperArmR.y, p.UpperArmR.z);
+                p.ForeArmL = new Vector3(-p.ForeArmR.x, p.ForeArmR.y, p.ForeArmR.z);
+            }
         }
 
         private Pose Idle()
@@ -240,6 +344,17 @@ namespace HEXBOUND.Presentation
                     break;
             }
 
+            if (c.Stance == FighterStance.Boxer && (f.Action == FighterAction.Idle || f.Action == FighterAction.Move || (f.Action == FighterAction.Air && !flying)))
+            {
+                // Boxing guard: fists up in front of the face.
+                float bob = Mathf.Sin(_time * (f.Action == FighterAction.Move ? 9f : 4f)) * 0.06f;
+                p.UpperArmL = V(-0.32f, -0.55f + bob, 0.62f);
+                p.ForeArmL = V(0.18f, 0.9f, 0.4f);
+                p.UpperArmR = V(0.32f, -0.6f - bob, 0.5f);
+                p.ForeArmR = V(-0.12f, 0.9f, 0.32f);
+                p.SpinePitch += 6f;
+            }
+
             if (f.Buff == BuffId.TwinBlades && f.Action == FighterAction.Attack)
             {
                 // The off hand mirrors the sword hand during Twin Blades attacks.
@@ -248,11 +363,15 @@ namespace HEXBOUND.Presentation
             }
 
             p.BodyYaw = _spinYaw;
+            p.SpineDir = Quaternion.Euler(p.SpinePitch * 0.6f, 0f, -p.SpineRoll * 0.6f) * _restSpine;
+            p.NeckDir = Quaternion.Euler(p.SpinePitch, 0f, -p.SpineRoll) * _restNeck;
+            p.PelvisUp = _restPelvisUp;
+            p.PelvisRight = _restPelvisRight;
             return p;
         }
 
         /// <summary>Startup, active and recovery windows, taken from the move's hitboxes or spawn ticks.</summary>
-        private static void Phases(MoveDef m, out int start, out int end)
+        internal static void Phases(MoveDef m, out int start, out int end)
         {
             start = -1;
             end = -1;
@@ -326,6 +445,22 @@ namespace HEXBOUND.Presentation
                     p.CalfL = V(-0.1f, -1f, -0.1f);
                     p.ThighR = V(0.2f, -1f, -0.45f);
                     p.BodyDrop = 0.1f;
+                    break;
+                }
+                case MovePose.JabLeft:
+                {
+                    Vector3 back = V(-0.35f, -0.4f, 0.5f);
+                    Vector3 forward = V(-0.06f, 0.08f, 1f);
+                    float k = t < start ? 0f : 1f - recover * 0.8f;
+                    p.UpperArmL = Vector3.Slerp(back, forward, k);
+                    p.ForeArmL = Vector3.Slerp(V(0.15f, 0.9f, 0.4f), V(-0.02f, 0.08f, 1f), k);
+                    p.UpperArmR = V(0.32f, -0.6f, 0.5f);
+                    p.ForeArmR = V(-0.12f, 0.9f, 0.32f);
+                    p.SpineYaw = t < start ? -10f : 18f;
+                    p.SpinePitch = 8f;
+                    p.ThighL = V(-0.2f, -1f, 0.4f);
+                    p.ThighR = V(0.2f, -1f, -0.3f);
+                    p.BodyDrop = 0.08f;
                     break;
                 }
                 case MovePose.Overhead:
@@ -402,7 +537,26 @@ namespace HEXBOUND.Presentation
                 }
                 case MovePose.Flurry:
                 {
-                    bool active = t >= start && t <= end + 6;
+                    HitboxDef finish = null;
+                    for (int i = 0; i < m.Hitboxes.Length; i++)
+                    {
+                        if (m.Hitboxes[i].Group == 1) finish = m.Hitboxes[i];
+                    }
+                    if (finish != null && t >= finish.Start - 6)
+                    {
+                        float fk = Mathf.Clamp01((t - (finish.Start - 6)) / 8f);
+                        bool launcher = (finish.Flags & HitFlags.Launch) != 0;
+                        Vector3 strike = launcher ? V(0.1f, 1f, 0.4f) : V(0.06f, 0.08f, 1f);
+                        Vector3 load = launcher ? V(0.35f, -0.9f, 0.35f) : V(0.4f, -0.2f, -0.5f);
+                        p.UpperArmR = Vector3.Slerp(load, strike, fk);
+                        p.ForeArmR = Vector3.Slerp(load, strike, fk);
+                        p.UpperArmL = V(-0.32f, -0.55f, 0.62f);
+                        p.ForeArmL = V(0.18f, 0.9f, 0.4f);
+                        p.SpinePitch = launcher ? Mathf.Lerp(18f, -16f, fk) : 14f;
+                        p.BodyDrop = launcher ? Mathf.Lerp(0.2f, -0.05f, fk) : 0.1f;
+                        break;
+                    }
+                    bool active = t >= start && t <= (finish != null ? finish.Start - 7 : end + 6);
                     float jab = active ? 0.5f + 0.5f * Mathf.Sin(t * 1.25f) : 0f;
                     p.UpperArmR = Vector3.Slerp(V(0.35f, -0.2f, -0.3f), V(0.08f, 0.05f, 1f), jab);
                     p.ForeArmR = Vector3.Slerp(V(0.2f, 0.1f, 0.6f), V(0.02f, 0.05f, 1f), jab);
@@ -455,17 +609,26 @@ namespace HEXBOUND.Presentation
             if (rig == null) return;
             rig.ResetToRest();
 
-            // Spine: pitch around the fighter's right axis, yaw around its up axis.
-            Transform spine = rig.SpineLow != null ? rig.SpineLow : rig.Chest;
-            if (spine != null)
+            // Pelvis: rotate from its rest frame to the wanted frame (up = pelvis to chest, right = across the hips).
+            if (rig.Pelvis != null)
             {
-                Quaternion bend = Quaternion.AngleAxis(p.SpineYaw * 0.6f, body.up) * Quaternion.AngleAxis(p.SpinePitch * 0.6f, body.right) * Quaternion.AngleAxis(p.SpineRoll * 0.6f, body.forward);
-                spine.rotation = bend * spine.rotation;
+                Quaternion rest = Frame(_restPelvisUp, _restPelvisRight);
+                Quaternion want = Frame(p.PelvisUp, p.PelvisRight);
+                Quaternion delta = want * Quaternion.Inverse(rest);
+                rig.Pelvis.rotation = body.rotation * delta * Quaternion.Inverse(body.rotation) * rig.Pelvis.rotation;
             }
-            if (rig.Chest != null && rig.Chest != spine)
+
+            // Spine and neck: aim by direction, then twist around the spine for the shoulder turn.
+            Transform spine = rig.SpineLow != null ? rig.SpineLow : rig.Pelvis;
+            if (spine != null && rig.Chest != null && spine != rig.Chest)
             {
-                Quaternion bend = Quaternion.AngleAxis(p.SpineYaw * 0.4f, body.up) * Quaternion.AngleAxis(p.SpinePitch * 0.4f, body.right) * Quaternion.AngleAxis(p.SpineRoll * 0.4f, body.forward);
-                rig.Chest.rotation = bend * rig.Chest.rotation;
+                PoseRig.Aim(spine, rig.Chest, body.TransformDirection(p.SpineDir));
+                Twist(spine, rig.Chest, p.SpineYaw * 0.6f);
+            }
+            if (rig.Chest != null && rig.Head != null)
+            {
+                PoseRig.Aim(rig.Chest, rig.Head, body.TransformDirection(p.NeckDir));
+                Twist(rig.Chest, rig.Head, p.SpineYaw * 0.4f);
             }
 
             PoseRig.Aim(rig.UpperArmL, rig.ForeArmL, body.TransformDirection(p.UpperArmL));
@@ -476,6 +639,21 @@ namespace HEXBOUND.Presentation
             PoseRig.Aim(rig.CalfL, rig.FootL, body.TransformDirection(p.CalfL));
             PoseRig.Aim(rig.ThighR, rig.CalfR, body.TransformDirection(p.ThighR));
             PoseRig.Aim(rig.CalfR, rig.FootR, body.TransformDirection(p.CalfR));
+        }
+
+        private static Quaternion Frame(Vector3 up, Vector3 right)
+        {
+            Vector3 forward = Vector3.Cross(right, up);
+            if (forward.sqrMagnitude < 1e-8f || up.sqrMagnitude < 1e-8f) return Quaternion.identity;
+            return Quaternion.LookRotation(forward.normalized, up.normalized);
+        }
+
+        private static void Twist(Transform bone, Transform child, float degrees)
+        {
+            if (Mathf.Abs(degrees) < 0.01f) return;
+            Vector3 axis = child.position - bone.position;
+            if (axis.sqrMagnitude < 1e-8f) return;
+            bone.rotation = Quaternion.AngleAxis(degrees, axis.normalized) * bone.rotation;
         }
     }
 }

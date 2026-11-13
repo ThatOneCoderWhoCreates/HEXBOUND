@@ -7,6 +7,7 @@ namespace HEXBOUND.Simulation
         public MoveDef AirDash;
         public MoveDef Grab;
         public MoveDef Recharge;
+        public MoveDef Heal;
 
         public static CommonMoves Build(ContentBuilder b)
         {
@@ -52,6 +53,14 @@ namespace HEXBOUND.Simulation
             c.Recharge.SoftTarget = false;
             c.Recharge.UsableInAir = true;
 
+            c.Heal = b.Move("Heal", 30, MovePose.Channel);
+            c.Heal.HealPercent = 5;
+            c.Heal.HealTick = 14;
+            c.Heal.Slot = CooldownSlot.Heal;
+            c.Heal.Cooldown = ContentBuilder.Seconds(20);
+            c.Heal.SoftTarget = false;
+            c.Heal.UsableInAir = true;
+
             return c;
         }
 
@@ -61,6 +70,7 @@ namespace HEXBOUND.Simulation
             character.AirDash = AirDash;
             character.Grab = Grab;
             character.Recharge = Recharge;
+            character.Heal = Heal;
         }
 
         /// <summary>Plunging air attack: small hop, then a fast dive that ends on landing.</summary>

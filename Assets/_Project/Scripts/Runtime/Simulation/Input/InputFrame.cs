@@ -17,6 +17,7 @@ namespace HEXBOUND.Simulation
         Grab = 1 << 8,
         Recharge = 1 << 9,
         LockOn = 1 << 10,
+        Heal = 1 << 11,
     }
 
     /// <summary>

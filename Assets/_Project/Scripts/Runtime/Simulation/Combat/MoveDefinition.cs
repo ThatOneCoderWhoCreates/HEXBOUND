@@ -26,6 +26,7 @@ namespace HEXBOUND.Simulation
         Ultimate,
         Recharge,
         Dodge,
+        Heal,
     }
 
     public enum BuffId : byte
@@ -128,6 +129,10 @@ namespace HEXBOUND.Simulation
         public int MagicGain;
         public int MagicGainTick;
 
+        /// <summary>Restores this percent of the fighter's maximum health at HealTick (used by the heal move).</summary>
+        public int HealPercent;
+        public int HealTick;
+
         /// <summary>Teleport distance along the move direction at TeleportTick. Zero means no teleport.</summary>
         public Fix TeleportDistance;
         public int TeleportTick;
@@ -162,5 +167,7 @@ namespace HEXBOUND.Simulation
         Grab,
         Dodge,
         Flurry,
+        /// <summary>Thrust with the left arm (jabs).</summary>
+        JabLeft,
     }
 }

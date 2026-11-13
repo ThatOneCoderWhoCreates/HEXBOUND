@@ -17,6 +17,10 @@ namespace HEXBOUND.Presentation
         private float _currYaw;
         private int _lastTick = -1;
         private float _punch;
+        private int _lastStep;
+
+        /// <summary>True on the frame a foot lands while running (for footstep sounds).</summary>
+        public bool StepThisFrame { get; private set; }
 
         public FighterView(CharacterDef character, Transform parent, int index)
         {
@@ -75,6 +79,10 @@ namespace HEXBOUND.Presentation
             v.y = 0f;
             _animator.Animate(ref f, Character, deltaTime, v.magnitude * GameConfig.TickRate);
 
+            int step = Mathf.FloorToInt(_animator.RunPhase / Mathf.PI);
+            StepThisFrame = step != _lastStep && f.Action == FighterAction.Move && f.Grounded;
+            _lastStep = step;
+
             _punch = Mathf.MoveTowards(_punch, 0f, deltaTime * 4f);
             Visual.Body.localScale = new Vector3(1f + _punch * 0.08f, 1f - _punch * 0.06f, 1f + _punch * 0.08f);
 
@@ -103,6 +111,7 @@ namespace HEXBOUND.Presentation
 
         public void Destroy()
         {
+            _animator.Dispose();
             if (Visual.Root != null) Object.Destroy(Visual.Root.gameObject);
         }
 

@@ -48,9 +48,10 @@ namespace HEXBOUND.UI
         private readonly Text _round;
         private readonly Text _announce;
         private readonly Text _subAnnounce;
-        private readonly AbilitySlot[] _slots = new AbilitySlot[5];
+        private readonly AbilitySlot[] _slots = new AbilitySlot[6];
         private readonly Text _netInfo;
         private readonly Text _trainingInfo;
+        private readonly Text _latency;
         private readonly Image _lockReticle;
         private readonly Text _buffText;
         private readonly RectTransform _rootRect;
@@ -76,10 +77,10 @@ namespace HEXBOUND.UI
             _subAnnounce = UIFactory.Label(_rootRect, string.Empty, 44, UIFactory.TextColor, TextAnchor.MiddleCenter, new Vector2(0, 10), new Vector2(1600, 70), FontStyle.Bold);
             _buffText = UIFactory.Label(_rootRect, string.Empty, 30, new Color(1f, 0.85f, 0.5f), TextAnchor.MiddleCenter, new Vector2(0, -330), new Vector2(800, 50), FontStyle.Bold);
 
-            string[] keys = { "Q", "E", "R", "M", "SHIFT" };
+            string[] keys = { "Q", "E", "R", "M", "Z", "SHIFT" };
             for (int i = 0; i < _slots.Length; i++)
             {
-                float x = (i - 2) * 132f;
+                float x = (i - 2.5f) * 132f;
                 RectTransform rt = UIFactory.Rect(_rootRect, "Slot " + keys[i], new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(x, 34), new Vector2(118, 118));
                 var slot = new AbilitySlot();
                 slot.Background = UIFactory.Image(rt, new Color(0.1f, 0.06f, 0.18f, 0.9f));
@@ -97,6 +98,7 @@ namespace HEXBOUND.UI
             }
 
             _netInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Net", new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-24, 20), new Vector2(520, 110)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerRight);
+            _latency = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Latency", new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -146), new Vector2(300, 36)), string.Empty, 26, new Color(0.3f, 1f, 0.4f), TextAnchor.MiddleLeft, FontStyle.Bold);
             _trainingInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Training", new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(24, 20), new Vector2(620, 140)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerLeft);
             _hint = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Hint", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 190), new Vector2(1400, 40)), "Esc pause  |  LMB light  RMB heavy  Q E skills  R ultimate  Shift dodge  Ctrl block/parry  F grab  M recharge  Tab lock-on", 22, UIFactory.MutedText, TextAnchor.MiddleCenter);
 
@@ -130,6 +132,12 @@ namespace HEXBOUND.UI
             }
             side.Combo = UIFactory.LabelOn(UIFactory.Rect(root, "Combo", right ? new Vector2(1, 0.5f) : new Vector2(0, 0.5f), right ? new Vector2(1, 0.5f) : new Vector2(0, 0.5f), pivot, new Vector2(40 * sign, 160), new Vector2(400, 120)), string.Empty, 54, new Color(1f, 0.8f, 0.35f), right ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft, FontStyle.Bold);
             return side;
+        }
+
+        /// <summary>Shows the online round-trip latency in the top-left corner. Pass a negative value to hide it (offline).</summary>
+        public void SetLatency(int milliseconds)
+        {
+            _latency.text = milliseconds >= 0 ? "Ping " + milliseconds + " ms" : string.Empty;
         }
 
         public void Show(bool visible)
@@ -295,9 +303,11 @@ namespace HEXBOUND.UI
             SetSlot(_slots[1], c.Skill2, f.CooldownSkill2, f.Magic);
             SetSlot(_slots[2], c.Ultimate, f.CooldownUltimate, f.Magic);
             SetSlot(_slots[3], c.Recharge, f.CooldownRecharge, int.MaxValue);
-            SetSlot(_slots[4], c.Dodge, f.CooldownDodge, int.MaxValue);
+            SetSlot(_slots[4], c.Heal, f.CooldownHeal, int.MaxValue);
+            SetSlot(_slots[5], c.Dodge, f.CooldownDodge, int.MaxValue);
             _slots[3].Cost.text = "+30";
-            _slots[4].Cost.text = string.Empty;
+            _slots[4].Cost.text = "+5%";
+            _slots[5].Cost.text = string.Empty;
         }
 
         private static void SetSlot(AbilitySlot slot, MoveDef move, int cooldown, int magic)

@@ -31,6 +31,7 @@ namespace HEXBOUND.App
         private ThirdPersonCamera _camera;
         private ArenaView _arena;
         private SfxPlayer _sfx;
+        private MusicPlayer _music;
         private MatchPresenter _presenter;
         private readonly LocalInputReader _input = new LocalInputReader();
 
@@ -88,6 +89,7 @@ namespace HEXBOUND.App
             _camera = new ThirdPersonCamera(transform);
             _arena = new ArenaView(transform);
             _sfx = new SfxPlayer(transform);
+            _music = new MusicPlayer(transform);
             _presenter = new MatchPresenter(transform, _sfx);
             _presenter.ShowHitboxes = GameSettings.ShowHitboxes;
 
@@ -473,6 +475,8 @@ namespace HEXBOUND.App
             else if (inMatch) UpdateOffline(dt);
 
             _arena.Update((float)dt);
+            _music.SetMood(_screen == ScreenId.Match ? MusicMood.Match : (_screen == ScreenId.Menu ? MusicMood.Menu : MusicMood.Lobby));
+            _music.Update((float)dt);
 
             GameState state = CurrentState;
             if (_screen == ScreenId.Match && state != null)
@@ -482,6 +486,7 @@ namespace HEXBOUND.App
                 _presenter.Render(state, events, Mathf.Clamp01(alpha), (float)dt);
                 events.Clear();
                 _hud.Update(state, _localIndex, _camera.Camera, NetInfo(), TrainingInfo(), (float)dt);
+                _hud.SetLatency(IsOnline && _net != null ? Mathf.RoundToInt((float)_net.RttMs) : -1);
 
                 if (state.Phase == MatchPhase.MatchOver && state.PhaseTicks > 90 && !_resultsShown) ShowResults(state);
             }

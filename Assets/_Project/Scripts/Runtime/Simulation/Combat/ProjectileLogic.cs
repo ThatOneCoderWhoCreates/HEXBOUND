@@ -62,7 +62,7 @@ namespace HEXBOUND.Simulation
                 p.Velocity.Y = p.Velocity.Y - def.Gravity;
                 p.Position = p.Position + p.Velocity;
                 p.TicksLeft--;
-                bool hitFloor = p.Position.Y < Fix.Zero && Arena.IsInside(p.Position);
+                bool hitFloor = (p.Position.Y < Fix.Zero && Arena.IsInside(p.Position)) || Arena.HitsPillar(p.Position, def.Radius);
                 if (p.TicksLeft <= 0 || hitFloor || p.Position.Y < GameConfig.RingOutHeight)
                 {
                     p.Active = false;

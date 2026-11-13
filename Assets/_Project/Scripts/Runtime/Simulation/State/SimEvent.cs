@@ -26,6 +26,7 @@ namespace HEXBOUND.Simulation
         RoundEnd,
         MatchEnd,
         NotEnoughMagic,
+        Heal,
     }
 
     /// <summary>Something that happened during a tick, for visuals and audio. Not part of the game state.</summary>

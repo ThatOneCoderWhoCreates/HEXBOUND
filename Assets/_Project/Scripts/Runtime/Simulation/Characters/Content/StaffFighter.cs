@@ -13,6 +13,7 @@ namespace HEXBOUND.Simulation
                 Name = "Bram",
                 Title = "The Hexwarden",
                 Weapon = "Staff",
+                ModelName = string.Empty,
                 Description = "Heavy staff fighter with long reach. Controls space and pushes enemies off the edge.",
                 MaxHealth = 1100,
                 Radius = ContentBuilder.M(500),

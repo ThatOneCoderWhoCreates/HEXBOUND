@@ -161,6 +161,7 @@ namespace HEXBOUND.Simulation
             if ((pressed & InputButtons.Dodge) != 0) return InputButtons.Dodge;
             if ((pressed & InputButtons.Jump) != 0) return InputButtons.Jump;
             if ((pressed & InputButtons.Recharge) != 0) return InputButtons.Recharge;
+            if ((pressed & InputButtons.Heal) != 0) return InputButtons.Heal;
             return InputButtons.None;
         }
 
@@ -171,6 +172,7 @@ namespace HEXBOUND.Simulation
             if (f.CooldownUltimate > 0) f.CooldownUltimate--;
             if (f.CooldownRecharge > 0) f.CooldownRecharge--;
             if (f.CooldownDodge > 0) f.CooldownDodge--;
+            if (f.CooldownHeal > 0) f.CooldownHeal--;
             if (f.InvulnTicks > 0) f.InvulnTicks--;
             if (f.RehitTimer > 0) f.RehitTimer--;
             if (f.Buff != BuffId.None)
@@ -385,6 +387,10 @@ namespace HEXBOUND.Simulation
                     if (f.CooldownRecharge > 0 || f.Magic >= GameConfig.MaxMagic) return false;
                     move = c.Recharge;
                     break;
+                case InputButtons.Heal:
+                    if (f.CooldownHeal > 0 || f.Health >= c.MaxHealth) return false;
+                    move = c.Heal;
+                    break;
             }
 
             if (move == null) return false;
@@ -423,6 +429,7 @@ namespace HEXBOUND.Simulation
                 case CooldownSlot.Ultimate: return f.CooldownUltimate <= 0;
                 case CooldownSlot.Recharge: return f.CooldownRecharge <= 0;
                 case CooldownSlot.Dodge: return f.CooldownDodge <= 0;
+                case CooldownSlot.Heal: return f.CooldownHeal <= 0;
                 default: return true;
             }
         }
@@ -436,6 +443,7 @@ namespace HEXBOUND.Simulation
                 case CooldownSlot.Ultimate: f.CooldownUltimate = move.Cooldown; break;
                 case CooldownSlot.Recharge: f.CooldownRecharge = move.Cooldown; break;
                 case CooldownSlot.Dodge: f.CooldownDodge = move.Cooldown; break;
+                case CooldownSlot.Heal: f.CooldownHeal = move.Cooldown; break;
             }
         }
 
@@ -552,6 +560,14 @@ namespace HEXBOUND.Simulation
                 if (ev != null) ev.Add(s.Tick, SimEventType.Recharge, index, m.MagicGain, f.Position);
             }
 
+            if (m.HealPercent > 0 && t == m.HealTick && f.Health > 0)
+            {
+                int before = f.Health;
+                f.Health += c.MaxHealth * m.HealPercent / 100;
+                if (f.Health > c.MaxHealth) f.Health = c.MaxHealth;
+                if (ev != null) ev.Add(s.Tick, SimEventType.Heal, index, f.Health - before, f.Position);
+            }
+
             for (int i = 0; i < m.Spawns.Length; i++)
             {
                 if (m.Spawns[i].Tick == t) ProjectileLogic.Spawn(s, index, m.Spawns[i], ref opp, ev);
@@ -628,6 +644,7 @@ namespace HEXBOUND.Simulation
             }
 
             f.Position = next;
+            if (f.Action != FighterAction.RingOut) BlockByPillars(ref f, c);
 
             if (f.Position.Y < GameConfig.RingOutHeight && f.Action != FighterAction.RingOut)
             {
@@ -640,6 +657,19 @@ namespace HEXBOUND.Simulation
             {
                 f.Velocity = FixVec3.Zero;
                 f.Position.Y = GameConfig.RingOutHeight;
+            }
+        }
+
+        /// <summary>Keeps a fighter out of the rock spikes and removes velocity pointing into them.</summary>
+        private static void BlockByPillars(ref FighterState f, CharacterDef c)
+        {
+            FixVec3 normal;
+            if (!Arena.PushOutOfPillars(ref f.Position, c.Radius, out normal)) return;
+            Fix into = f.Velocity.X * normal.X + f.Velocity.Z * normal.Z;
+            if (into < Fix.Zero)
+            {
+                f.Velocity.X = f.Velocity.X - normal.X * into;
+                f.Velocity.Z = f.Velocity.Z - normal.Z * into;
             }
         }
 
@@ -700,6 +730,8 @@ namespace HEXBOUND.Simulation
 
             if (IsVoluntary(a.Action) && Arena.IsInside(aBefore) && !Arena.IsInside(a.Position, EdgeMargin)) a.Position = Arena.ClampInside(a.Position, EdgeMargin);
             if (IsVoluntary(b.Action) && Arena.IsInside(bBefore) && !Arena.IsInside(b.Position, EdgeMargin)) b.Position = Arena.ClampInside(b.Position, EdgeMargin);
+            BlockByPillars(ref a, ca);
+            BlockByPillars(ref b, cb);
         }
     }
 }

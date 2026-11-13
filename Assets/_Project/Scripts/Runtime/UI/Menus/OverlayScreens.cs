@@ -61,6 +61,7 @@ namespace HEXBOUND.UI
                 "Left Ctrl  Block (hold)  |  Parry: tap just before a hit\n" +
                 "F  Grab (beats block)\n" +
                 "M  Recharge magic (+30, every 5 s)\n" +
+                "Z  Heal (+5% health, every 20 s)\n" +
                 "Tab / Middle mouse  Lock-on\n" +
                 "Esc  Pause";
             string pad =
@@ -74,6 +75,7 @@ namespace HEXBOUND.UI
                 "LB  Block / Parry\n" +
                 "D-pad down  Grab\n" +
                 "D-pad up  Recharge\n" +
+                "D-pad left  Heal\n" +
                 "Right stick click  Lock-on\n" +
                 "Start  Pause\n\n" +
                 "<b>TRAINING</b>\nF1 hitboxes  F2 bot mode  F4 reset";
