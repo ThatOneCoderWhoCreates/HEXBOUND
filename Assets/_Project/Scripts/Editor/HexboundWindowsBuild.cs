@@ -8,13 +8,13 @@ using UnityEngine;
 namespace HEXBOUND.Editor
 {
     /// <summary>
-    /// Menu: HEXBOUND > Build Windows Game. Builds HEXBOUND.exe into Builds/Windows and packs the whole
-    /// folder into Builds/HEXBOUND-Windows.zip, ready to send to a friend.
+    /// Menu: HEXBOUND > Build Windows Game. Builds WUSHEN.exe (the game's player-facing name) into Builds/Windows and packs the whole
+    /// folder into Builds/WUSHEN-Windows.zip, ready to send to a friend.
     /// </summary>
     public static class HexboundWindowsBuild
     {
         private const string OutputFolder = "Builds/Windows";
-        private const string ZipPath = "Builds/HEXBOUND-Windows.zip";
+        private const string ZipPath = "Builds/WUSHEN-Windows.zip";
 
         [MenuItem("HEXBOUND/Build Windows Game (.exe + zip)", priority = 40)]
         public static void Build()
@@ -25,7 +25,8 @@ namespace HEXBOUND.Editor
                 return;
             }
 
-            PlayerSettings.productName = "HEXBOUND";
+            PlayerSettings.productName = "WUSHEN";
+            PlayerSettings.companyName = "Pixtel Studios";
             PlayerSettings.runInBackground = true;
             PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
             PlayerSettings.resizableWindow = true;
@@ -37,7 +38,7 @@ namespace HEXBOUND.Editor
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { HexboundEditorSetup.MainScenePath },
-                locationPathName = Path.Combine(OutputFolder, "HEXBOUND.exe"),
+                locationPathName = Path.Combine(OutputFolder, "WUSHEN.exe"),
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.None,
             };

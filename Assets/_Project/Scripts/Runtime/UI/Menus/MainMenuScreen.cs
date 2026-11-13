@@ -22,7 +22,7 @@ namespace HEXBOUND.UI
             Image shade = UIFactory.Image(UIFactory.Stretch(root, "Shade"), new Color(0.02f, 0.01f, 0.05f, 0.35f));
             shade.raycastTarget = false;
 
-            UIFactory.Label(root, "HEXBOUND", 150, new Color(0.85f, 0.7f, 1f), TextAnchor.MiddleCenter, new Vector2(0, 300), new Vector2(1400, 200), FontStyle.Bold);
+            UIFactory.Label(root, "WUSHEN", 150, new Color(0.85f, 0.7f, 1f), TextAnchor.MiddleCenter, new Vector2(0, 300), new Vector2(1400, 200), FontStyle.Bold);
             UIFactory.Label(root, "1v1 ARENA FIGHTER", 34, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, 190), new Vector2(1000, 60));
 
             float y = 70;
@@ -32,7 +32,67 @@ namespace HEXBOUND.UI
             UIFactory.Button(root, "CONTROLS", new Vector2(0, y -= 96), new Vector2(460, 78), () => Controls?.Invoke());
             UIFactory.Button(root, "QUIT", new Vector2(0, y -= 96), new Vector2(460, 78), () => Quit?.Invoke());
 
-            UIFactory.Label(root, "Prototype build. Placeholder animation and sound.  Models: \"PBR Shadowkin Mage (Rigged)\" by Ferocious Industries, \"Arcane Inspired Character\" by schs05 (both CC-BY-4.0, Sketchfab).", 20, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, -500), new Vector2(1800, 40));
+            UIFactory.Label(root, "Developed by Pixtel Studios", 24, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, -500), new Vector2(1000, 40));
+
+            RectTransform creditsButton = UIFactory.Rect(root, "Credits Button", new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-30, 30), new Vector2(200, 56));
+            UIFactory.Button(creditsButton, "CREDITS", Vector2.zero, new Vector2(200, 56), () => _credits.SetActive(true), 24);
+
+            _credits = BuildCredits(root);
+            _credits.SetActive(false);
+        }
+
+        private readonly GameObject _credits;
+
+        private const string CharactersText =
+            "<b>CHARACTERS</b>\n\n" +
+            "<b>1. PBR Shadowkin Mage (Rigged)</b>\n" +
+            "Creator: Ferocious Industries\n" +
+            "Source: https://skfb.ly/oLvGM\n" +
+            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+            "https://creativecommons.org/licenses/by/4.0/\n\n" +
+            "<b>2. Female Warrior</b>\n" +
+            "Creator: Chenchanchong\n" +
+            "Source: https://skfb.ly/pB8K7\n" +
+            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+            "https://creativecommons.org/licenses/by/4.0/\n\n" +
+            "<b>3. Arcane Inspired Character</b>\n" +
+            "Creator: schs05\n" +
+            "Source: https://skfb.ly/oPwnF\n" +
+            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+            "https://creativecommons.org/licenses/by/4.0/";
+
+        private const string EnvironmentText =
+            "<b>ENVIRONMENT</b>\n\n" +
+            "<b>4. Floating Island With Roots And Rocks</b>\n" +
+            "Creator: Dennis\n" +
+            "Source: https://skfb.ly/pFGQN\n" +
+            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+            "https://creativecommons.org/licenses/by/4.0/\n\n" +
+            "<b>5. Low Poly Lava Fighting Arena/Stage</b>\n" +
+            "Creator: Umar\n" +
+            "Source: https://skfb.ly/pzYyM\n" +
+            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+            "https://creativecommons.org/licenses/by/4.0/\n\n" +
+            "<b>ANIMATIONS</b>\n\n" +
+            "<b>6. KinemIQ Animation Library</b>\n" +
+            "Source: https://kinemiq.app/\n" +
+            "Licence: Depends on the individual animation used.\n" +
+            "Attribution: Required for animations licensed under CC BY.\n" +
+            "Not required for CC0 animations.\n" +
+            "This game uses the KinemIQ Free Animation Pack (CC0).";
+
+        private GameObject BuildCredits(RectTransform root)
+        {
+            RectTransform panel = UIFactory.Stretch(root, "Credits");
+            UIFactory.Image(UIFactory.Stretch(panel, "Shade"), new Color(0f, 0f, 0f, 0.85f));
+            UIFactory.Label(panel, "CREDITS", 64, UIFactory.TextColor, TextAnchor.MiddleCenter, new Vector2(0, 450), new Vector2(800, 90), FontStyle.Bold);
+            UIFactory.Label(panel, "WUSHEN  |  Developed by Pixtel Studios", 28, UIFactory.Accent, TextAnchor.MiddleCenter, new Vector2(0, 385), new Vector2(1200, 44), FontStyle.Bold);
+            Text left = UIFactory.Label(panel, CharactersText, 22, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(-440, -20), new Vector2(780, 700));
+            left.supportRichText = true;
+            Text right = UIFactory.Label(panel, EnvironmentText, 22, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(440, -20), new Vector2(780, 700));
+            right.supportRichText = true;
+            UIFactory.Button(panel, "CLOSE", new Vector2(0, -470), new Vector2(320, 70), () => _credits.SetActive(false));
+            return panel.gameObject;
         }
 
         public void Show(bool visible)
