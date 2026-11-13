@@ -1,0 +1,22 @@
+{
+    "name": "HEXBOUND.Netcode",
+    "rootNamespace": "HEXBOUND.Netcode",
+    "references": [
+        "HEXBOUND.Simulation",
+        "HEXBOUND.Core",
+        "Unity.Networking.Transport",
+        "Unity.Collections",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Multiplayer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

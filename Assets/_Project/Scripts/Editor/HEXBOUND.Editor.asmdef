@@ -1,0 +1,24 @@
+{
+    "name": "HEXBOUND.Editor",
+    "rootNamespace": "HEXBOUND.Editor",
+    "references": [
+        "HEXBOUND.Simulation",
+        "HEXBOUND.Core",
+        "HEXBOUND.Input",
+        "HEXBOUND.Netcode",
+        "HEXBOUND.Presentation",
+        "HEXBOUND.UI",
+        "HEXBOUND.App"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

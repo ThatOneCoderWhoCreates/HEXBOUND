@@ -1,0 +1,22 @@
+{
+    "name": "HEXBOUND.App",
+    "rootNamespace": "HEXBOUND.App",
+    "references": [
+        "HEXBOUND.Simulation",
+        "HEXBOUND.Core",
+        "HEXBOUND.Input",
+        "HEXBOUND.Netcode",
+        "HEXBOUND.Presentation",
+        "HEXBOUND.UI",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
