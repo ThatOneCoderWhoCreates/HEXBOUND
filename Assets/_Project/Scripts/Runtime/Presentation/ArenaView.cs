@@ -271,7 +271,7 @@ namespace HEXBOUND.Presentation
 
         private static Material ParticleMaterial(Color hdr)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            Shader shader = MaterialFactory.FindShader("Universal Render Pipeline/Particles/Unlit", "Particles_Additive");
             if (shader == null) return MaterialFactory.Additive(hdr);
             var m = new Material(shader);
             m.SetFloat("_Surface", 1f);

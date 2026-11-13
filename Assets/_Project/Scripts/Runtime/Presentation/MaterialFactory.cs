@@ -19,8 +19,7 @@ namespace HEXBOUND.Presentation
         {
             get
             {
-                if (_lit == null) _lit = Shader.Find("Universal Render Pipeline/Lit");
-                if (_lit == null) _lit = Shader.Find("Standard");
+                if (_lit == null) _lit = FindShader("Universal Render Pipeline/Lit", "Lit_Emission");
                 return _lit;
             }
         }
@@ -29,10 +28,26 @@ namespace HEXBOUND.Presentation
         {
             get
             {
-                if (_unlit == null) _unlit = Shader.Find("Universal Render Pipeline/Unlit");
-                if (_unlit == null) _unlit = Shader.Find("Unlit/Color");
+                if (_unlit == null) _unlit = FindShader("Universal Render Pipeline/Unlit", "Unlit_Additive");
                 return _unlit;
             }
+        }
+
+        /// <summary>Folder (under Resources) of materials that keep the URP shaders and their variants in Windows builds.</summary>
+        public const string ShaderKeepFolder = "Materials/ShaderKeep";
+
+        /// <summary>
+        /// Finds a shader by name. A built game only contains shaders that some asset uses, so if the name
+        /// lookup fails, the shader is taken from a keep-alive material in Resources/Materials/ShaderKeep.
+        /// </summary>
+        public static Shader FindShader(string shaderName, string keepMaterial)
+        {
+            Shader shader = Shader.Find(shaderName);
+            if (shader != null) return shader;
+            Material keep = Resources.Load<Material>(ShaderKeepFolder + "/" + keepMaterial);
+            if (keep != null && keep.shader != null) return keep.shader;
+            Debug.LogError("WUSHEN: shader not found in this build: " + shaderName);
+            return Shader.Find("Hidden/InternalErrorShader");
         }
 
         public static Material Lit(Color color, float smoothness = 0.35f, float metallic = 0f, Color? emission = null)

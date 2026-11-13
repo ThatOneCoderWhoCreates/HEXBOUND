@@ -21,3 +21,4 @@ Player-facing game name: **WUSHEN**, developed by **Pixtel Studios** (HEXBOUND i
 ## Unity packages
 
 Unity Transport, Unity Multiplayer Services, Input System, Universal Render Pipeline, Unity glTFast, Cinemachine, Multiplayer Play Mode.
+- **"Ethereal Chimera"** by iamlazy (https://sketchfab.com/iamrob88), https://sketchfab.com/3d-models/ethereal-chimera-7673d3d79f0a45bb9a917cb881e2c558, licensed under CC-BY-4.0. Used as the beast (Assets/_Project/Resources/Fighters/Beast.glb). Modified: a skeleton was added so it can be animated.
