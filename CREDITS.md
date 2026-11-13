@@ -12,6 +12,8 @@ Player-facing game name: **WUSHEN**, developed by **Pixtel Studios** (HEXBOUND i
 
 - **KinemIQ Free Animation Pack** (KinemIQ, https://kinemiq.app), CC0 (public domain), built on the Quaternius Universal skeleton. Motion-capture clips and mannequin in `Assets/_Project/Resources/Animations/KinemIQ/`, with the original README. Credit is optional but appreciated.
 
+- **"Ethereal Chimera"** by iamlazy (https://sketchfab.com/iamrob88), https://sketchfab.com/3d-models/ethereal-chimera-7673d3d79f0a45bb9a917cb881e2c558, licensed under CC-BY-4.0. Used as the beast (Assets/_Project/Resources/Fighters/Beast.glb). Modified: a skeleton was added so it can be animated.
+
 ## Audio
 
 - **Impact Sounds 1.0** by Kenney (www.kenney.nl), CC0 (public domain). 75 of its clips are in `Assets/_Project/Resources/Audio/SFX/`, with the original license file. Credit is optional but appreciated.
@@ -21,4 +23,3 @@ Player-facing game name: **WUSHEN**, developed by **Pixtel Studios** (HEXBOUND i
 ## Unity packages
 
 Unity Transport, Unity Multiplayer Services, Input System, Universal Render Pipeline, Unity glTFast, Cinemachine, Multiplayer Play Mode.
-- **"Ethereal Chimera"** by iamlazy (https://sketchfab.com/iamrob88), https://sketchfab.com/3d-models/ethereal-chimera-7673d3d79f0a45bb9a917cb881e2c558, licensed under CC-BY-4.0. Used as the beast (Assets/_Project/Resources/Fighters/Beast.glb). Modified: a skeleton was added so it can be animated.

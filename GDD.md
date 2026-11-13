@@ -143,3 +143,12 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 2. Final names for all fighters (current names are placeholders), and a staff model to bring Bram back.
 3. Art direction and animation source.
 4. Should magic regenerate slowly on its own as well?
+
+## Update 2026-11-13: crouch, magic changes, Fight the Beast
+
+- Recharge magic moved from M to X. Every fighter now has 750 magic (was 500).
+- C (hold): crouch. Attacks centered above 62% of the fighter's height miss. Grabs still connect.
+- C + left mouse: Low Sweep (50 damage, trips). A standing block does not stop it.
+- C + right mouse (hold): low guard. Blocks low and normal attacks, is never guard-broken (heavies deal double chip), cannot parry. Loses to overheads (Overhead/Slam moves), air attacks and grabs.
+- Fight the Beast (main menu): best of 3 against Chimera, a large beast (1300 health, no magic, slower, heavy punches). At 30% health, once per round, it awakens: roar shockwave, heals 10%, purple aura, then 30% faster movement, faster attacks and 25% more damage for the rest of the round.
+- The beast learns the player's habits (which actions in which situations, what follows what, how eagerly each skill is used when available, how the player defends). Expected moves are noticed almost at once and parried or blocked; attacks are chosen to beat the player's usual defense. Memory and level are saved on the PC; the level rises each time the player wins (0 to 10). Higher levels react faster, parry more and deal more damage (75% at level 0 to 115% at level 10).

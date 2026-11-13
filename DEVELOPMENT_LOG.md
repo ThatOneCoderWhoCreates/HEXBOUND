@@ -4,6 +4,29 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-13: Crouch, X recharge, 750 magic, Fight the Beast
+
+### Request (Tanmay)
+
+Move recharge to X, raise magic to 750. Add crouch (C), crouch attack (C + left click) and crouch defense (C + right click). Add the monster (monke.glb): big, slightly slower, no magic, heavy punches, purple aura and faster/stronger at low health. It should learn the player's combos and get harder every time.
+
+### Changes
+
+- Simulation: InputButtons.Crouch; FighterAction Crouch and CrouchBlock; HitFlags Low and Overhead; MoveDef.Crouching; per-character MaxMagic (750 default); ducking rule and low guard in CombatResolver; the block arc now uses the attacker's position (blocks at very close range work). Common Low Sweep move.
+- Beast: BeastFighter.cs (Chimera), awakening (BuffId.Awakened, AwakenMove), MatchMode.Beast with level-based damage. BeastMemory (saved learning) and BeastBrain (reaction delay, prediction from availability-normalized habits, parry timing, counter-picking attacks, punishing).
+- Model: monke.glb had no skeleton. A skeleton (17 bones) and vertex weights were generated offline and saved as Resources/Fighters/Beast.glb.
+- Presentation: crouch, sweep, roar and beast poses; awakening effects; HUD and menus (Fight the Beast button, beast info and Reset Beast in character select, credits entry).
+
+### Verified
+
+All assemblies compile. EditMode tests 19 of 19 pass. Bot soak deterministic. Rollback tests: no desyncs. Beast test: against a Q/E spamming player, the share of skills parried or blocked rose from 0-27% (matches 1-4) to 48-63% (matches 7-10).
+
+### Not verified yet
+
+How the beast model looks and animates in Unity. Balance: the beast beat the built-in bot in all test matches, including level 0.
+
+---
+
 ## 2026-11-13: Motion-capture animations, Z heal, Windows build
 
 ### Request (Tanmay)

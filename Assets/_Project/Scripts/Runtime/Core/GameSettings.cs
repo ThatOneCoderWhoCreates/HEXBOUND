@@ -11,6 +11,7 @@ namespace HEXBOUND.Core
         private const string ShowHitboxesKey = "hexbound.showHitboxes";
         private const string LastIpKey = "hexbound.lastIp";
         private const string InputDelayKey = "hexbound.inputDelay";
+        private const string BeastMemoryKey = "hexbound.beastMemory";
 
         public static float MouseSensitivity
         {
@@ -40,6 +41,17 @@ namespace HEXBOUND.Core
         {
             get { return PlayerPrefs.GetString(LastIpKey, "127.0.0.1"); }
             set { PlayerPrefs.SetString(LastIpKey, value ?? string.Empty); }
+        }
+
+        /// <summary>What the beast has learned about this player, and its level (text, see BeastMemory).</summary>
+        public static string BeastMemory
+        {
+            get { return PlayerPrefs.GetString(BeastMemoryKey, string.Empty); }
+            set
+            {
+                PlayerPrefs.SetString(BeastMemoryKey, value ?? string.Empty);
+                PlayerPrefs.Save();
+            }
         }
 
         /// <summary>Local input delay in ticks for online matches. Higher means fewer rollbacks but more delay.</summary>

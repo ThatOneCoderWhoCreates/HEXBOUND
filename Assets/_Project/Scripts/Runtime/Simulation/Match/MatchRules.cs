@@ -5,8 +5,8 @@ namespace HEXBOUND.Simulation
     {
         public const int TickRate = 60;
 
-        public const int MaxMagic = 500;
-        public const int StartMagic = 500;
+        /// <summary>Default maximum magic (a fighter can override it with CharacterDef.MaxMagic).</summary>
+        public const int MaxMagic = 750;
 
         public const int RoundTimeSeconds = 99;
         public const int WinsNeeded = 2;
@@ -30,6 +30,9 @@ namespace HEXBOUND.Simulation
         public const int GetUpInvuln = 20;
 
         public const int InputBufferTicks = 10;
+
+        /// <summary>A crouching fighter is not hit by attacks centered above this fraction of its height (percent).</summary>
+        public const int CrouchDuckPercent = 62;
 
         /// <summary>Turn speed toward the movement direction, in simulation angle units per tick.</summary>
         public const int TurnSpeed = 5000;
@@ -68,6 +71,8 @@ namespace HEXBOUND.Simulation
     {
         Versus = 0,
         Training = 1,
+        /// <summary>Best of 3 against the learning beast.</summary>
+        Beast = 2,
     }
 
     public struct MatchSetup
@@ -78,5 +83,7 @@ namespace HEXBOUND.Simulation
         public MatchMode Mode;
         /// <summary>Training option: magic and cooldowns refill instantly.</summary>
         public bool InfiniteMagic;
+        /// <summary>Beast mode: the beast's level (0-10). Its hits deal 75% damage at level 0, rising to 115% at level 10.</summary>
+        public int BeastLevel;
     }
 }

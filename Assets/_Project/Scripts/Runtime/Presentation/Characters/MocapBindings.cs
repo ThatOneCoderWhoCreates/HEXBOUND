@@ -73,7 +73,7 @@ namespace HEXBOUND.Presentation
         public static bool Resolve(MocapLibrary lib, ref FighterState f, CharacterDef c, float idleTime, float runTime, bool celebrating, out MocapChoice choice)
         {
             choice = new MocapChoice { Mask = MocapMask.All };
-            if (lib == null) return false;
+            if (lib == null || c.Stance == FighterStance.Beast || FighterLogic.IsCrouched(ref f)) return false;
             bool flying = f.Buff == BuffId.Levitate && (f.Action == FighterAction.Air || f.Action == FighterAction.Attack);
             bool boxer = c.Stance == FighterStance.Boxer;
 

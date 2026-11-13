@@ -16,6 +16,10 @@ namespace HEXBOUND.Simulation
         Unblockable = 1 << 3,
         /// <summary>Knockback points away from the attacker's position instead of along its facing.</summary>
         Radial = 1 << 4,
+        /// <summary>Low attack: a standing block does not stop it (use the low guard).</summary>
+        Low = 1 << 5,
+        /// <summary>Overhead attack: the low guard does not stop it (air attacks count as overhead too).</summary>
+        Overhead = 1 << 6,
     }
 
     public enum CooldownSlot
@@ -34,6 +38,8 @@ namespace HEXBOUND.Simulation
         None = 0,
         TwinBlades = 1,
         Levitate = 2,
+        /// <summary>The beast's low-health power-up (purple aura): faster, stronger moves.</summary>
+        Awakened = 3,
     }
 
     /// <summary>A sphere-shaped attack area, active for a range of ticks of the move.</summary>
@@ -137,6 +143,9 @@ namespace HEXBOUND.Simulation
         public Fix TeleportDistance;
         public int TeleportTick;
 
+        /// <summary>The fighter stays low during this move (ducks high attacks), like the crouch attack.</summary>
+        public bool Crouching;
+
         public bool UsableOnGround = true;
         public bool UsableInAir;
         /// <summary>The move ends when the fighter lands and plays LandingRecovery ticks of recovery.</summary>
@@ -169,5 +178,9 @@ namespace HEXBOUND.Simulation
         Flurry,
         /// <summary>Thrust with the left arm (jabs).</summary>
         JabLeft,
+        /// <summary>Crouching leg sweep.</summary>
+        Sweep,
+        /// <summary>Beast roar with both arms out (awakening).</summary>
+        Roar,
     }
 }

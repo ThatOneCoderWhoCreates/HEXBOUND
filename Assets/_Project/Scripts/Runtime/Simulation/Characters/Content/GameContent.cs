@@ -9,6 +9,11 @@ namespace HEXBOUND.Simulation
         public static readonly MoveDef[] Moves;
         public static readonly ProjectileDef[] Projectiles;
 
+        /// <summary>The first PlayableCount characters can be picked in character select; the rest are mode bosses.</summary>
+        public static readonly int PlayableCount;
+        /// <summary>Character id of the beast (Fight the Beast mode).</summary>
+        public static readonly int BeastId;
+
         /// <summary>Hash of all gameplay numbers. Peers compare it so both run the same content.</summary>
         public static readonly ulong ContentHash;
 
@@ -22,10 +27,13 @@ namespace HEXBOUND.Simulation
                 SwordFighter.Build(b, common),
                 BoxerFighter.Build(b, common),
                 WandFighter.Build(b, common),
+                BeastFighter.Build(b, common),
             };
             for (int i = 0; i < Characters.Length; i++)
             {
                 Characters[i].Id = i;
+                if (Characters[i].Selectable) PlayableCount = i + 1;
+                if (Characters[i].Stance == FighterStance.Beast) BeastId = i;
             }
             Moves = b.Moves.ToArray();
             Projectiles = b.Projectiles.ToArray();
@@ -59,6 +67,9 @@ namespace HEXBOUND.Simulation
                 h.Add(c.Gravity);
                 h.Add(c.KnockbackScale);
                 h.Add(c.BuffSpeedScale);
+                h.Add(c.MaxMagic);
+                h.Add(c.AwakenPercent);
+                h.Add(c.AwakenDamagePercent);
                 h.Add(c.Name.Length);
             }
             for (int i = 0; i < Arena.EdgeSamples; i++)
@@ -86,6 +97,8 @@ namespace HEXBOUND.Simulation
                 h.Add(m.TeleportDistance);
                 h.Add(m.GravityScale);
                 h.Add(m.SteerSpeed);
+                h.Add(m.HealPercent);
+                h.Add(m.Crouching ? 1 : 0);
                 foreach (HitboxDef hb in m.Hitboxes)
                 {
                     h.Add(hb.Start);

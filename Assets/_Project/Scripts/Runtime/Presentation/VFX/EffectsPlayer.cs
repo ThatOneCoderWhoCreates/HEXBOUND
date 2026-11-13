@@ -232,6 +232,19 @@ namespace HEXBOUND.Presentation
                         RaisePopup(pos + Vector3.up * 2.1f, "NOT ENOUGH MAGIC", new Color(0.55f, 0.65f, 1f), 0.9f);
                     }
                     break;
+                case SimEventType.Awaken:
+                {
+                    Color purple = new Color(3.2f, 0.8f, 5.5f);
+                    Ring(pos + Vector3.up * 0.1f, purple, 0.8f, 0.6f, 9f);
+                    Ring(pos + Vector3.up * 1.2f, purple, 0.6f, 0.4f, 6f);
+                    Flash(pos + Vector3.up * 1.5f, purple, 0.5f, 0.8f, 5f);
+                    Burst(pos + Vector3.up * 1.5f, purple, 40, 9f, 1f, true);
+                    _sfx.Play(Sfx.BodySlam, 1f, 0f);
+                    _sfx.Play(Sfx.Buff, 1f, 0f);
+                    RaisePopup(pos + Vector3.up * 3.6f, "AWAKENED", new Color(0.85f, 0.5f, 1f), 1.6f);
+                    RaiseShake(1.2f);
+                    break;
+                }
                 case SimEventType.KO:
                     Flash(pos + Vector3.up, new Color(6f, 6f, 6f), 0.3f, 0.6f, 4f);
                     Burst(pos + Vector3.up, new Color(5f, 4f, 3f), 30, 12f, 0.7f);

@@ -288,7 +288,8 @@ namespace HEXBOUND.Presentation
             var aura = new GameObject("Aura");
             aura.transform.SetParent(visual.Root, false);
             GameObject ring = MaterialFactory.Primitive(PrimitiveType.Cylinder, aura.transform, visual.AccentMaterial, "Ring");
-            ring.transform.localScale = new Vector3(1.6f, 0.01f, 1.6f);
+            float ringSize = Mathf.Max(1.6f, character.Radius.ToFloat() * 3.6f);
+            ring.transform.localScale = new Vector3(ringSize, 0.01f, ringSize);
             ring.transform.localPosition = new Vector3(0, 0.03f, 0);
             ring.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             var lightGo = new GameObject("Aura Light");
@@ -296,7 +297,7 @@ namespace HEXBOUND.Presentation
             lightGo.transform.localPosition = new Vector3(0, 1.2f, 0);
             Light light = lightGo.AddComponent<Light>();
             light.type = LightType.Point;
-            light.range = 5f;
+            light.range = Mathf.Max(5f, ringSize * 3f);
             light.intensity = 3f;
             light.color = accentHdr / 3.2f;
             aura.SetActive(false);
@@ -305,7 +306,8 @@ namespace HEXBOUND.Presentation
 
             // Small marker under each fighter so players can tell them apart.
             var marker = MaterialFactory.Primitive(PrimitiveType.Cylinder, visual.Root, MaterialFactory.Glow(playerIndex == 0 ? new Color(0.4f, 1.2f, 2.5f) : new Color(2.5f, 0.6f, 0.4f)), "Player Marker");
-            marker.transform.localScale = new Vector3(0.9f, 0.005f, 0.9f);
+            float markerSize = Mathf.Max(0.9f, character.Radius.ToFloat() * 2f);
+            marker.transform.localScale = new Vector3(markerSize, 0.005f, markerSize);
             marker.transform.localPosition = new Vector3(0, 0.015f, 0);
             marker.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }

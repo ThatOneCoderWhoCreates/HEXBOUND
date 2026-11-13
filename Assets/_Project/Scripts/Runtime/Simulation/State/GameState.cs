@@ -143,6 +143,8 @@ namespace HEXBOUND.Simulation
             h.Add(f.CooldownRecharge);
             h.Add(f.CooldownDodge);
             h.Add(f.CooldownHeal);
+            h.Add(f.LowGuardStun ? 1 : 0);
+            h.Add(f.Awakened ? 1 : 0);
             h.Add((int)f.Buff);
             h.Add(f.BuffTicks);
             h.Add(f.StunTicks);

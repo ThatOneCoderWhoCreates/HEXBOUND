@@ -50,6 +50,9 @@ namespace HEXBOUND.App
         private GameState _offline;
         private readonly EventBuffer _offlineEvents = new EventBuffer(512);
         private TrainingBot _bot;
+        private BeastBrain _beast;
+        private BeastMemory _beastMemory;
+        private bool _beastRecorded;
         private MatchSetup _offlineSetup;
         private SelectMode _offlineMode;
         private BotMode _trainingBotMode = BotMode.Idle;
@@ -114,6 +117,7 @@ namespace HEXBOUND.App
         {
             _menu.Training += () => OpenOfflineSelect(SelectMode.Training);
             _menu.VersusBot += () => OpenOfflineSelect(SelectMode.VersusBot);
+            _menu.Beast += () => OpenOfflineSelect(SelectMode.Beast);
             _menu.Online += OpenOnline;
             _menu.Controls += () =>
             {
@@ -139,6 +143,13 @@ namespace HEXBOUND.App
                 Click();
                 _trainingBotMode = (BotMode)(((int)_trainingBotMode + 1) % 3);
                 _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
+            };
+            _select.ResetBeastClicked += () =>
+            {
+                Click();
+                _beastMemory = new BeastMemory();
+                GameSettings.BeastMemory = _beastMemory.Serialize();
+                _select.SetBeastInfo(BeastSummary());
             };
             _select.InfiniteMagicClicked += () =>
             {
@@ -236,6 +247,75 @@ namespace HEXBOUND.App
             _screen = ScreenId.Select;
             _select.Open(mode);
             _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
+            if (mode == SelectMode.Beast)
+            {
+                LoadBeast();
+                _select.SetBeastInfo(BeastSummary());
+            }
+        }
+
+        // ---------------------------------------------------------------- Beast
+
+        private void LoadBeast()
+        {
+            if (_beastMemory == null) _beastMemory = BeastMemory.Deserialize(GameSettings.BeastMemory);
+        }
+
+        private void SaveBeast()
+        {
+            if (_beastMemory != null) GameSettings.BeastMemory = _beastMemory.Serialize();
+        }
+
+        private string BeastSummary()
+        {
+            LoadBeast();
+            BeastMemory m = _beastMemory;
+            string text = "<b>THE BEAST  -  LEVEL " + m.Level + " / " + BeastMemory.MaxLevel + "</b>";
+            if (m.Matches == 0)
+            {
+                text += "\nIt has never fought you. It learns your habits as you fight, and gets harder every time you beat it.";
+            }
+            else
+            {
+                text += "\nRecord: you " + m.PlayerWins + " - " + m.BeastWins + " beast.  It has studied about " + Mathf.RoundToInt(m.Observations) + " of your moves.";
+                PlayerAct fav = m.FavoriteAct();
+                if (fav != PlayerAct.None) text += "\nIt expects your favorite: " + ActName(fav) + ".";
+            }
+            return text;
+        }
+
+        private static string ActName(PlayerAct act)
+        {
+            switch (act)
+            {
+                case PlayerAct.Light: return "light attacks";
+                case PlayerAct.Heavy: return "heavy attacks";
+                case PlayerAct.Skill1: return "your Q skill";
+                case PlayerAct.Skill2: return "your E skill";
+                case PlayerAct.Ultimate: return "your ultimate";
+                case PlayerAct.Grab: return "grabs";
+                case PlayerAct.Dodge: return "dodging";
+                case PlayerAct.Jump: return "jumping";
+                case PlayerAct.Block: return "blocking";
+                case PlayerAct.CrouchAttack: return "low sweeps";
+                case PlayerAct.CrouchGuard: return "crouching";
+                case PlayerAct.AirAttack: return "air attacks";
+                case PlayerAct.Heal: return "healing";
+                case PlayerAct.Recharge: return "recharging magic";
+                default: return act.ToString();
+            }
+        }
+
+        /// <summary>Saves what the beast learned. A finished match also counts toward its level.</summary>
+        private void RecordBeast(GameState s, bool finished)
+        {
+            if (_beast == null || _beastMemory == null || s == null || s.Setup.Mode != MatchMode.Beast || _beastRecorded) return;
+            if (finished)
+            {
+                _beastMemory.RecordMatch(s.MatchWinner == _localIndex);
+                _beastRecorded = true;
+            }
+            SaveBeast();
         }
 
         private void OpenOnline()
@@ -256,14 +336,24 @@ namespace HEXBOUND.App
             Click();
             _offlineMode = _select.Mode;
             bool training = _offlineMode == SelectMode.Training;
+            bool beast = _offlineMode == SelectMode.Beast;
+            if (beast)
+            {
+                LoadBeast();
+                opponent = GameContent.BeastId;
+                _beastMemory.Fade(0.85f);
+            }
             _offlineSetup = new MatchSetup
             {
                 Character0 = player,
                 Character1 = opponent,
                 Seed = (uint)Environment.TickCount | 1u,
-                Mode = training ? MatchMode.Training : MatchMode.Versus,
+                Mode = training ? MatchMode.Training : (beast ? MatchMode.Beast : MatchMode.Versus),
                 InfiniteMagic = training && _infiniteMagic,
+                BeastLevel = beast ? _beastMemory.Level : 0,
             };
+            _beast = beast ? new BeastBrain(_beastMemory, _offlineSetup.Seed * 17u + 3u) : null;
+            _beastRecorded = false;
             _offline = new GameState();
             _offlineEvents.Clear();
             GameSimulation.Initialize(_offline, _offlineSetup, _offlineEvents);
@@ -286,6 +376,8 @@ namespace HEXBOUND.App
 
         private void EndOfflineToMenu()
         {
+            RecordBeast(_offline, false);
+            _beast = null;
             _offline = null;
             ShowMenu();
         }
@@ -309,7 +401,7 @@ namespace HEXBOUND.App
             while (_accumulator >= TickSeconds)
             {
                 InputFrame local = SampleLocal();
-                InputFrame bot = _bot.Think(_offline, 1);
+                InputFrame bot = _beast != null ? _beast.Think(_offline, 1) : _bot.Think(_offline, 1);
                 GameSimulation.Tick(_offline, local, bot, _offlineEvents);
                 _accumulator -= TickSeconds;
             }
@@ -578,6 +670,16 @@ namespace HEXBOUND.App
             CharacterDef c0 = GameContent.GetCharacter(s.Fighters[0].CharacterId);
             CharacterDef c1 = GameContent.GetCharacter(s.Fighters[1].CharacterId);
             string detail = c0.Name + "  " + s.Wins0 + " - " + s.Wins1 + "  " + c1.Name;
+            if (!IsOnline && s.Setup.Mode == MatchMode.Beast)
+            {
+                int before = _beastMemory != null ? _beastMemory.Level : 0;
+                RecordBeast(s, true);
+                if (_beastMemory != null)
+                {
+                    detail += _beastMemory.Level > before ? "\nThe beast learned from you. It is now level " + _beastMemory.Level + "."
+                        : "\nThe beast stays at level " + _beastMemory.Level + ". It keeps learning your habits.";
+                }
+            }
             _overlay.ShowResults(title, color, detail, IsOnline ? "CHARACTER SELECT" : "REMATCH");
         }
 
@@ -593,6 +695,10 @@ namespace HEXBOUND.App
 
         private string TrainingInfo()
         {
+            if (!IsOnline && _offline != null && _offline.Setup.Mode == MatchMode.Beast && _beastMemory != null)
+            {
+                return "THE BEAST  Level " + _beastMemory.Level + "\nLearning from your moves...";
+            }
             if (IsOnline || _offline == null || _offline.Setup.Mode != MatchMode.Training) return string.Empty;
             return "TRAINING   Bot: " + _trainingBotMode + " (F2)\nInfinite magic: " + (_offline.Setup.InfiniteMagic ? "ON" : "OFF") + "   F1 hitboxes   F4 reset";
         }
@@ -614,6 +720,7 @@ namespace HEXBOUND.App
 
         private void OnApplicationQuit()
         {
+            RecordBeast(_offline, false);
             CloseOnline();
         }
     }

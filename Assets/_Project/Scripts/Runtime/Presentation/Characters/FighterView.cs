@@ -27,7 +27,7 @@ namespace HEXBOUND.Presentation
             Index = index;
             Character = character;
             Visual = FighterRigBuilder.Build(character, parent, index);
-            _animator = new FighterAnimator(Visual);
+            _animator = new FighterAnimator(Visual, character.Stance == FighterStance.Beast);
         }
 
         public Vector3 Position

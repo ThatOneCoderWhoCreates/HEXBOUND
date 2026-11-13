@@ -77,7 +77,7 @@ namespace HEXBOUND.UI
             _subAnnounce = UIFactory.Label(_rootRect, string.Empty, 44, UIFactory.TextColor, TextAnchor.MiddleCenter, new Vector2(0, 10), new Vector2(1600, 70), FontStyle.Bold);
             _buffText = UIFactory.Label(_rootRect, string.Empty, 30, new Color(1f, 0.85f, 0.5f), TextAnchor.MiddleCenter, new Vector2(0, -330), new Vector2(800, 50), FontStyle.Bold);
 
-            string[] keys = { "Q", "E", "R", "M", "Z", "SHIFT" };
+            string[] keys = { "Q", "E", "R", "X", "Z", "SHIFT" };
             for (int i = 0; i < _slots.Length; i++)
             {
                 float x = (i - 2.5f) * 132f;
@@ -100,7 +100,7 @@ namespace HEXBOUND.UI
             _netInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Net", new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-24, 20), new Vector2(520, 110)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerRight);
             _latency = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Latency", new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -146), new Vector2(300, 36)), string.Empty, 26, new Color(0.3f, 1f, 0.4f), TextAnchor.MiddleLeft, FontStyle.Bold);
             _trainingInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Training", new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(24, 20), new Vector2(620, 140)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerLeft);
-            _hint = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Hint", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 190), new Vector2(1400, 40)), "Esc pause  |  LMB light  RMB heavy  Q E skills  R ultimate  Shift dodge  Ctrl block/parry  F grab  M recharge  Tab lock-on", 22, UIFactory.MutedText, TextAnchor.MiddleCenter);
+            _hint = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Hint", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 190), new Vector2(1860, 40)), "Esc pause  |  LMB light  RMB heavy  Q E skills  R ultimate  Shift dodge  Ctrl block/parry  F grab  X recharge  Z heal  C crouch (+LMB sweep, +RMB low guard)  Tab lock-on", 22, UIFactory.MutedText, TextAnchor.MiddleCenter);
 
             RectTransform reticle = UIFactory.Rect(_rootRect, "Lock Reticle", Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
             _lockReticle = UIFactory.Image(reticle, new Color(1f, 0.35f, 0.3f, 0.85f));
@@ -122,7 +122,7 @@ namespace HEXBOUND.UI
             side.Health = UIFactory.Bar(root, anchor, pivot, new Vector2(30 * sign, -66), new Vector2(700, 40), new Color(0.95f, 0.25f, 0.3f), right);
             side.Health.transform.parent.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
             side.Magic = UIFactory.Bar(root, anchor, pivot, new Vector2(30 * sign, -112), new Vector2(520, 22), new Color(0.35f, 0.55f, 1f), right);
-            side.MagicText = UIFactory.LabelOn(UIFactory.Rect(root, "Magic", anchor, anchor, pivot, new Vector2(560 * sign, -106), new Vector2(170, 34)), "500", 24, new Color(0.6f, 0.75f, 1f), right ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft, FontStyle.Bold);
+            side.MagicText = UIFactory.LabelOn(UIFactory.Rect(root, "Magic", anchor, anchor, pivot, new Vector2(560 * sign, -106), new Vector2(170, 34)), "750", 24, new Color(0.6f, 0.75f, 1f), right ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft, FontStyle.Bold);
             side.Pips = new Image[GameConfig.WinsNeeded];
             for (int i = 0; i < side.Pips.Length; i++)
             {
@@ -190,7 +190,9 @@ namespace HEXBOUND.UI
             UpdateSlots(ref s.Fighters[localIndex]);
 
             FighterState me = s.Fighters[localIndex];
-            _buffText.text = me.Buff == BuffId.None ? string.Empty : (me.Buff == BuffId.TwinBlades ? "TWIN BLADES " : "LEVITATE ") + Mathf.CeilToInt(me.BuffTicks / 60f) + "s";
+            FighterState other = s.Fighters[1 - localIndex];
+            if (me.Buff != BuffId.None && me.Buff != BuffId.Awakened) _buffText.text = (me.Buff == BuffId.TwinBlades ? "TWIN BLADES " : "LEVITATE ") + Mathf.CeilToInt(me.BuffTicks / 60f) + "s";
+            else _buffText.text = other.Buff == BuffId.Awakened ? "THE BEAST HAS AWAKENED" : string.Empty;
 
             _netInfo.text = netInfo ?? string.Empty;
             _trainingInfo.text = trainingInfo ?? string.Empty;
@@ -226,7 +228,10 @@ namespace HEXBOUND.UI
             if (side.LagValue < health) side.LagValue = health;
             side.LagValue = Mathf.MoveTowards(side.LagValue, health, dt * 0.35f);
             side.HealthLag.fillAmount = side.LagValue;
-            side.Magic.fillAmount = f.Magic / (float)GameConfig.MaxMagic;
+            int maxMagic = GameContent.GetCharacter(f.CharacterId).MaxMagic;
+            side.Magic.transform.parent.gameObject.SetActive(maxMagic > 0);
+            side.MagicText.gameObject.SetActive(maxMagic > 0);
+            side.Magic.fillAmount = maxMagic > 0 ? f.Magic / (float)maxMagic : 0f;
             side.MagicText.text = f.Magic.ToString();
             for (int i = 0; i < side.Pips.Length; i++)
             {

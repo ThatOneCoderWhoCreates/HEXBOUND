@@ -82,6 +82,83 @@ namespace HEXBOUND.Tests
             Assert.AreEqual(before, s.Fighters[0].Health, "no heal during cooldown");
         }
 
+        private static string Exchange(int attacker, int defender, InputButtons press, InputButtons attackHold, InputButtons defend, int gapMilli)
+        {
+            GameState s = NewMatch(attacker, defender, 3);
+            int guard = 0;
+            while (s.Phase != MatchPhase.Fighting && guard++ < 2000) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            s.Fighters[0].Position = FixVec3.Zero;
+            s.Fighters[1].Position = new FixVec3(Fix.Zero, Fix.Zero, Fix.Milli(gapMilli));
+            s.Fighters[0].Facing = 0;
+            s.Fighters[1].Facing = FixMath.HalfTurn;
+            var ev = new EventBuffer(256);
+            for (int i = 0; i < 12; i++) GameSimulation.Tick(s, new InputFrame { Buttons = attackHold }, new InputFrame { Buttons = defend }, ev);
+            for (int i = 0; i < 60; i++)
+            {
+                ev.Clear();
+                GameSimulation.Tick(s, new InputFrame { Buttons = attackHold | (i == 0 ? press : InputButtons.None) }, new InputFrame { Buttons = defend }, ev);
+                for (int k = 0; k < ev.Count; k++)
+                {
+                    SimEvent e = ev[k];
+                    if (e.Fighter != 1) continue;
+                    if (e.Type == SimEventType.Hit || e.Type == SimEventType.GrabHit) return "hit";
+                    if (e.Type == SimEventType.Blocked) return "blocked";
+                    if (e.Type == SimEventType.Parried) return "parried";
+                }
+            }
+            return "none";
+        }
+
+        [Test]
+        public void CrouchRules()
+        {
+            Assert.AreEqual("none", Exchange(1, 0, InputButtons.Light, InputButtons.None, InputButtons.Crouch, 1400), "crouch ducks a high jab");
+            Assert.AreEqual("hit", Exchange(0, 1, InputButtons.Light, InputButtons.Crouch, InputButtons.Block, 1400), "low sweep beats a standing block");
+            Assert.AreEqual("blocked", Exchange(0, 1, InputButtons.Light, InputButtons.Crouch, InputButtons.Crouch | InputButtons.Heavy, 1400), "low guard blocks the sweep");
+            Assert.AreEqual("hit", Exchange(GameContent.BeastId, 1, InputButtons.Skill1, InputButtons.None, InputButtons.Crouch | InputButtons.Heavy, 1800), "overhead beats the low guard");
+            Assert.AreEqual("hit", Exchange(0, 1, InputButtons.Grab, InputButtons.None, InputButtons.Crouch | InputButtons.Heavy, 1400), "grab beats the low guard");
+        }
+
+        [Test]
+        public void MagicAndRoster()
+        {
+            Assert.AreEqual(750, NewMatch(0, 1, 1).Fighters[0].Magic);
+            Assert.AreEqual(3, GameContent.PlayableCount);
+            Assert.AreEqual(0, GameContent.GetCharacter(GameContent.BeastId).MaxMagic);
+        }
+
+        [Test]
+        public void BeastAwakensOnceAtLowHealth()
+        {
+            var s = new GameState();
+            GameSimulation.Initialize(s, new MatchSetup { Character0 = 0, Character1 = GameContent.BeastId, Seed = 9, Mode = MatchMode.Beast }, null);
+            int guard = 0;
+            while (s.Phase != MatchPhase.Fighting && guard++ < 2000) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            CharacterDef bc = GameContent.GetCharacter(GameContent.BeastId);
+            s.Fighters[1].Health = bc.MaxHealth / 4;
+            int before = s.Fighters[1].Health;
+            for (int i = 0; i < 90; i++) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            Assert.IsTrue(s.Fighters[1].Awakened);
+            Assert.AreEqual(BuffId.Awakened, s.Fighters[1].Buff);
+            Assert.AreEqual(before + bc.MaxHealth / 10, s.Fighters[1].Health);
+        }
+
+        [Test]
+        public void BeastMemorySavesAndLoads()
+        {
+            var memory = new BeastMemory();
+            var s = new GameState();
+            GameSimulation.Initialize(s, new MatchSetup { Character0 = 1, Character1 = GameContent.BeastId, Seed = 4, Mode = MatchMode.Beast }, null);
+            var player = new TrainingBot(5) { ReactionTicks = 5 };
+            var beast = new BeastBrain(memory, 6);
+            for (int i = 0; i < 3000; i++) GameSimulation.Tick(s, player.Think(s, 0), beast.Think(s, 1), null);
+            Assert.Greater(memory.Observations, 5f, "the beast recorded player actions");
+            memory.RecordMatch(true);
+            Assert.AreEqual(1, memory.Level, "a player win raises the level");
+            string text = memory.Serialize();
+            Assert.AreEqual(text, BeastMemory.Deserialize(text).Serialize());
+        }
+
         [Test]
         public void InputPacking()
         {

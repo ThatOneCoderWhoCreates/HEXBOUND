@@ -18,6 +18,10 @@ namespace HEXBOUND.Simulation
         KO,
         RingOut,
         Victory,
+        /// <summary>Holding C: low stance that ducks high attacks.</summary>
+        Crouch,
+        /// <summary>Holding C + right mouse: low guard. Blocks low and mid attacks, loses to overheads, air attacks and grabs.</summary>
+        CrouchBlock,
     }
 
     /// <summary>
@@ -53,6 +57,11 @@ namespace HEXBOUND.Simulation
         public int CooldownRecharge;
         public int CooldownDodge;
         public int CooldownHeal;
+
+        /// <summary>True during blockstun that came from the low guard (keeps the low hurtbox).</summary>
+        public bool LowGuardStun;
+        /// <summary>The beast's low-health awakening has happened this round.</summary>
+        public bool Awakened;
 
         public BuffId Buff;
         public int BuffTicks;

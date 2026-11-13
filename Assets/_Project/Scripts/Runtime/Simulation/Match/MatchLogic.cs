@@ -135,7 +135,7 @@ namespace HEXBOUND.Simulation
             }
             if (infiniteMagic)
             {
-                f.Magic = GameConfig.MaxMagic;
+                f.Magic = GameContent.GetCharacter(f.CharacterId).MaxMagic;
                 f.CooldownSkill1 = 0;
                 f.CooldownSkill2 = 0;
                 f.CooldownUltimate = 0;

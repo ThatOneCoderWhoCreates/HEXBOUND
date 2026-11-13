@@ -108,8 +108,9 @@ namespace HEXBOUND.Input
                 if (kb.eKey.isPressed) b |= InputButtons.Skill2;
                 if (kb.rKey.isPressed) b |= InputButtons.Ultimate;
                 if (kb.fKey.isPressed) b |= InputButtons.Grab;
-                if (kb.mKey.isPressed) b |= InputButtons.Recharge;
+                if (kb.xKey.isPressed) b |= InputButtons.Recharge;
                 if (kb.zKey.isPressed) b |= InputButtons.Heal;
+                if (kb.cKey.isPressed) b |= InputButtons.Crouch;
                 if (kb.tabKey.isPressed) b |= InputButtons.LockOn;
             }
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
@@ -131,6 +132,7 @@ namespace HEXBOUND.Input
                 if (pad.dpad.down.isPressed) b |= InputButtons.Grab;
                 if (pad.dpad.up.isPressed) b |= InputButtons.Recharge;
                 if (pad.dpad.left.isPressed) b |= InputButtons.Heal;
+                if (pad.leftStickButton.isPressed) b |= InputButtons.Crouch;
                 if (pad.rightStickButton.isPressed) b |= InputButtons.LockOn;
             }
             return b;
@@ -152,8 +154,9 @@ namespace HEXBOUND.Input
                 if (kb.eKey.wasPressedThisFrame) b |= InputButtons.Skill2;
                 if (kb.rKey.wasPressedThisFrame) b |= InputButtons.Ultimate;
                 if (kb.fKey.wasPressedThisFrame) b |= InputButtons.Grab;
-                if (kb.mKey.wasPressedThisFrame) b |= InputButtons.Recharge;
+                if (kb.xKey.wasPressedThisFrame) b |= InputButtons.Recharge;
                 if (kb.zKey.wasPressedThisFrame) b |= InputButtons.Heal;
+                if (kb.cKey.wasPressedThisFrame) b |= InputButtons.Crouch;
                 if (kb.tabKey.wasPressedThisFrame) b |= InputButtons.LockOn;
             }
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
@@ -175,6 +178,7 @@ namespace HEXBOUND.Input
                 if (pad.dpad.down.wasPressedThisFrame) b |= InputButtons.Grab;
                 if (pad.dpad.up.wasPressedThisFrame) b |= InputButtons.Recharge;
                 if (pad.dpad.left.wasPressedThisFrame) b |= InputButtons.Heal;
+                if (pad.leftStickButton.wasPressedThisFrame) b |= InputButtons.Crouch;
                 if (pad.rightStickButton.wasPressedThisFrame) b |= InputButtons.LockOn;
             }
             return b;

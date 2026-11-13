@@ -193,6 +193,7 @@ namespace HEXBOUND.Netcode
                         break;
                     case Protocol.CharacterSelect:
                         RemoteCharacter = r.ReadByte();
+                        if (RemoteCharacter >= GameContent.PlayableCount) RemoteCharacter = 0;
                         RemoteReady = r.ReadByte() != 0;
                         TryStartAsHost();
                         break;

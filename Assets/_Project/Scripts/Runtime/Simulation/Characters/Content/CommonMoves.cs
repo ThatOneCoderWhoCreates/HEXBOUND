@@ -1,6 +1,6 @@
 namespace HEXBOUND.Simulation
 {
-    /// <summary>Moves shared by every fighter: dodge, air dash, grab and magic recharge.</summary>
+    /// <summary>Moves shared by every fighter: dodge, air dash, grab, magic recharge, heal and the crouch attack.</summary>
     public sealed class CommonMoves
     {
         public MoveDef Dodge;
@@ -8,6 +8,7 @@ namespace HEXBOUND.Simulation
         public MoveDef Grab;
         public MoveDef Recharge;
         public MoveDef Heal;
+        public MoveDef LowSweep;
 
         public static CommonMoves Build(ContentBuilder b)
         {
@@ -61,6 +62,18 @@ namespace HEXBOUND.Simulation
             c.Heal.SoftTarget = false;
             c.Heal.UsableInAir = true;
 
+            // C + left mouse: a low leg sweep from the crouch. Trips (knocks down), must be blocked with the low guard.
+            c.LowSweep = b.Move("Low Sweep", 32, MovePose.Sweep);
+            var sweep = ContentBuilder.Hit(9, 12, 1150, 250, 750, 50);
+            sweep.Flags = HitFlags.Low | HitFlags.Launch;
+            sweep.KnockbackH = ContentBuilder.M(60);
+            sweep.KnockbackV = ContentBuilder.M(140);
+            sweep.Hitstun = 30;
+            sweep.Blockstun = 14;
+            c.LowSweep.Hitboxes = new[] { sweep };
+            c.LowSweep.Motions = new[] { ContentBuilder.Motion(1, 8, 40) };
+            c.LowSweep.Crouching = true;
+
             return c;
         }
 
@@ -71,6 +84,7 @@ namespace HEXBOUND.Simulation
             character.Grab = Grab;
             character.Recharge = Recharge;
             character.Heal = Heal;
+            character.CrouchAttack = LowSweep;
         }
 
         /// <summary>Plunging air attack: small hop, then a fast dive that ends on landing.</summary>

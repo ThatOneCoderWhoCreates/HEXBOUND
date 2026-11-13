@@ -27,6 +27,7 @@ namespace HEXBOUND.Simulation
         MatchEnd,
         NotEnoughMagic,
         Heal,
+        Awaken,
     }
 
     /// <summary>Something that happened during a tick, for visuals and audio. Not part of the game state.</summary>

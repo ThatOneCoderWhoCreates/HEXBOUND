@@ -10,6 +10,7 @@ namespace HEXBOUND.UI
 
         public event Action Training;
         public event Action VersusBot;
+        public event Action Beast;
         public event Action Online;
         public event Action Controls;
         public event Action Quit;
@@ -25,12 +26,13 @@ namespace HEXBOUND.UI
             UIFactory.Label(root, "WUSHEN", 150, new Color(0.85f, 0.7f, 1f), TextAnchor.MiddleCenter, new Vector2(0, 300), new Vector2(1400, 200), FontStyle.Bold);
             UIFactory.Label(root, "1v1 ARENA FIGHTER", 34, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, 190), new Vector2(1000, 60));
 
-            float y = 70;
+            float y = 110;
             UIFactory.Button(root, "TRAINING", new Vector2(0, y), new Vector2(460, 78), () => Training?.Invoke());
-            UIFactory.Button(root, "VERSUS BOT", new Vector2(0, y -= 96), new Vector2(460, 78), () => VersusBot?.Invoke());
-            UIFactory.Button(root, "ONLINE", new Vector2(0, y -= 96), new Vector2(460, 78), () => Online?.Invoke());
-            UIFactory.Button(root, "CONTROLS", new Vector2(0, y -= 96), new Vector2(460, 78), () => Controls?.Invoke());
-            UIFactory.Button(root, "QUIT", new Vector2(0, y -= 96), new Vector2(460, 78), () => Quit?.Invoke());
+            UIFactory.Button(root, "VERSUS BOT", new Vector2(0, y -= 94), new Vector2(460, 78), () => VersusBot?.Invoke());
+            UIFactory.Button(root, "FIGHT THE BEAST", new Vector2(0, y -= 94), new Vector2(460, 78), () => Beast?.Invoke());
+            UIFactory.Button(root, "ONLINE", new Vector2(0, y -= 94), new Vector2(460, 78), () => Online?.Invoke());
+            UIFactory.Button(root, "CONTROLS", new Vector2(0, y -= 94), new Vector2(460, 78), () => Controls?.Invoke());
+            UIFactory.Button(root, "QUIT", new Vector2(0, y -= 94), new Vector2(460, 78), () => Quit?.Invoke());
 
             UIFactory.Label(root, "Developed by Pixtel Studios", 24, UIFactory.MutedText, TextAnchor.MiddleCenter, new Vector2(0, -500), new Vector2(1000, 40));
 
@@ -59,22 +61,27 @@ namespace HEXBOUND.UI
             "Creator: schs05\n" +
             "Source: https://skfb.ly/oPwnF\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
-            "https://creativecommons.org/licenses/by/4.0/";
+            "https://creativecommons.org/licenses/by/4.0/\n\n" +
+            "<b>4. Ethereal Chimera (the Beast)</b>\n" +
+            "Creator: iamlazy (sketchfab.com/iamrob88)\n" +
+            "Source: sketchfab.com/3d-models/ethereal-chimera-7673d3d79f0a45bb9a917cb881e2c558\n" +
+            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+            "Changes: a skeleton was added so it can be animated.";
 
         private const string EnvironmentText =
             "<b>ENVIRONMENT</b>\n\n" +
-            "<b>4. Floating Island With Roots And Rocks</b>\n" +
+            "<b>5. Floating Island With Roots And Rocks</b>\n" +
             "Creator: Dennis\n" +
             "Source: https://skfb.ly/pFGQN\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
-            "<b>5. Low Poly Lava Fighting Arena/Stage</b>\n" +
+            "<b>6. Low Poly Lava Fighting Arena/Stage</b>\n" +
             "Creator: Umar\n" +
             "Source: https://skfb.ly/pzYyM\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
             "<b>ANIMATIONS</b>\n\n" +
-            "<b>6. KinemIQ Animation Library</b>\n" +
+            "<b>7. KinemIQ Animation Library</b>\n" +
             "Source: https://kinemiq.app/\n" +
             "Licence: Depends on the individual animation used.\n" +
             "Attribution: Required for animations licensed under CC BY.\n" +
@@ -87,9 +94,9 @@ namespace HEXBOUND.UI
             UIFactory.Image(UIFactory.Stretch(panel, "Shade"), new Color(0f, 0f, 0f, 0.85f));
             UIFactory.Label(panel, "CREDITS", 64, UIFactory.TextColor, TextAnchor.MiddleCenter, new Vector2(0, 450), new Vector2(800, 90), FontStyle.Bold);
             UIFactory.Label(panel, "WUSHEN  |  Developed by Pixtel Studios", 28, UIFactory.Accent, TextAnchor.MiddleCenter, new Vector2(0, 385), new Vector2(1200, 44), FontStyle.Bold);
-            Text left = UIFactory.Label(panel, CharactersText, 22, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(-440, -20), new Vector2(780, 700));
+            Text left = UIFactory.Label(panel, CharactersText, 20, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(-440, -30), new Vector2(820, 760));
             left.supportRichText = true;
-            Text right = UIFactory.Label(panel, EnvironmentText, 22, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(440, -20), new Vector2(780, 700));
+            Text right = UIFactory.Label(panel, EnvironmentText, 20, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(440, -30), new Vector2(820, 760));
             right.supportRichText = true;
             UIFactory.Button(panel, "CLOSE", new Vector2(0, -470), new Vector2(320, 70), () => _credits.SetActive(false));
             return panel.gameObject;

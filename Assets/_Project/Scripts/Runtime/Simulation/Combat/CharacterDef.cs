@@ -7,6 +7,8 @@ namespace HEXBOUND.Simulation
     {
         Weapon,
         Boxer,
+        /// <summary>Hunched beast that walks on its knuckles.</summary>
+        Beast,
     }
 
     /// <summary>Text shown in menus and the HUD for one ability.</summary>
@@ -30,6 +32,8 @@ namespace HEXBOUND.Simulation
         public string Description;
 
         public int MaxHealth = 1000;
+        /// <summary>Maximum magic; fighters start each round full. Zero means the fighter uses no magic.</summary>
+        public int MaxMagic = GameConfig.MaxMagic;
         public Fix Radius = Fix.Milli(450);
         public Fix Height = Fix.Milli(1800);
         /// <summary>Ground speed in units per tick.</summary>
@@ -52,6 +56,16 @@ namespace HEXBOUND.Simulation
         public MoveDef AirDash;
         public MoveDef Recharge;
         public MoveDef Heal;
+        /// <summary>C + left mouse: low attack from the crouch.</summary>
+        public MoveDef CrouchAttack;
+
+        /// <summary>Shown in the character select screen. The beast is only fought in its own mode.</summary>
+        public bool Selectable = true;
+        /// <summary>Starts automatically once per round when health drops to AwakenPercent of max (the beast).</summary>
+        public MoveDef AwakenMove;
+        public int AwakenPercent;
+        /// <summary>Damage multiplier (percent) for this fighter's hits while the Awakened buff is active.</summary>
+        public int AwakenDamagePercent = 100;
 
         /// <summary>Moves that replace the normal ones while the ultimate buff is active (null keeps the normal move).</summary>
         public BuffId UltimateBuff = BuffId.None;

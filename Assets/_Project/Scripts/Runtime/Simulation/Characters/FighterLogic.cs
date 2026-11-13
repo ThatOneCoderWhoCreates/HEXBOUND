@@ -23,7 +23,7 @@ namespace HEXBOUND.Simulation
             f.Facing = index == 0 ? 0 : FixMath.HalfTurn;
             f.Grounded = true;
             f.Health = c.MaxHealth;
-            f.Magic = GameConfig.StartMagic;
+            f.Magic = c.MaxMagic;
         }
 
         public static bool IsFlying(ref FighterState f)
@@ -59,10 +59,36 @@ namespace HEXBOUND.Simulation
                 case FighterAction.Parried:
                 case FighterAction.GuardBroken:
                 case FighterAction.GetUp:
+                case FighterAction.Crouch:
+                case FighterAction.CrouchBlock:
                     return true;
                 default:
                     return false;
             }
+        }
+
+        /// <summary>True while the fighter is low (crouch, low guard, crouch attack): attacks centered high miss.</summary>
+        public static bool IsCrouched(ref FighterState f)
+        {
+            switch (f.Action)
+            {
+                case FighterAction.Crouch:
+                case FighterAction.CrouchBlock:
+                    return true;
+                case FighterAction.BlockStun:
+                    return f.LowGuardStun;
+                case FighterAction.Attack:
+                    MoveDef m = GameContent.GetMove(f.MoveId);
+                    return m != null && m.Crouching;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>The fighter's movement speed multiplier from its ultimate buff (Twin Blades, Awakened).</summary>
+        private static Fix SpeedScale(ref FighterState f, CharacterDef c)
+        {
+            return f.Buff != BuffId.None && f.Buff == c.UltimateBuff ? c.BuffSpeedScale : Fix.One;
         }
 
         public static void Step(GameState s, int index, InputFrame input, ref FighterState opponentAtStart, EventBuffer ev)
@@ -103,11 +129,28 @@ namespace HEXBOUND.Simulation
             f.ActionTicks++;
             FixVec3 previous = f.Position;
 
+            if (ShouldAwaken(ref f, c))
+            {
+                f.Awakened = true;
+                f.BufferedButton = InputButtons.None;
+                f.BufferTicks = 0;
+                f.ComboCount = 0;
+                f.JuggleCount = 0;
+                f.ComboDamage = 0;
+                f.LockOn = true;
+                if (ev != null) ev.Add(s.Tick, SimEventType.Awaken, index, 0, f.Position);
+                StartMove(s, index, ref f, c, c.AwakenMove, 0, input, ref opponentAtStart, ev);
+                Integrate(s, index, ref f, c, input, previous, ev);
+                return;
+            }
+
             switch (f.Action)
             {
                 case FighterAction.Idle:
                 case FighterAction.Move:
                 case FighterAction.Block:
+                case FighterAction.Crouch:
+                case FighterAction.CrouchBlock:
                     GroundActionable(s, index, ref f, c, input, ref opponentAtStart, ev);
                     break;
                 case FighterAction.Air:
@@ -191,6 +234,31 @@ namespace HEXBOUND.Simulation
         {
             f.Action = action;
             f.ActionTicks = 0;
+            f.LowGuardStun = false;
+        }
+
+        /// <summary>The beast awakens once per round when its health falls low, as soon as it is on its feet.</summary>
+        private static bool ShouldAwaken(ref FighterState f, CharacterDef c)
+        {
+            if (c.AwakenMove == null || f.Awakened || f.Health <= 0 || !f.Grounded) return false;
+            if (f.Health * 100 > c.MaxHealth * c.AwakenPercent) return false;
+            switch (f.Action)
+            {
+                case FighterAction.Idle:
+                case FighterAction.Move:
+                case FighterAction.Block:
+                case FighterAction.Crouch:
+                case FighterAction.CrouchBlock:
+                case FighterAction.HitStun:
+                case FighterAction.BlockStun:
+                case FighterAction.GuardBroken:
+                case FighterAction.Parried:
+                case FighterAction.Landing:
+                case FighterAction.Attack:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static void ApplyGroundFriction(ref FighterState f)
@@ -208,8 +276,19 @@ namespace HEXBOUND.Simulation
         {
             if (TryStartAction(s, index, ref f, c, input, ref opp, ev, false)) return;
 
+            bool crouchHeld = input.Held(InputButtons.Crouch) && c.CrouchAttack != null;
+            if (crouchHeld && input.Held(InputButtons.Heavy))
+            {
+                // Low guard: C + right mouse held.
+                if (f.Action != FighterAction.CrouchBlock) SetAction(ref f, FighterAction.CrouchBlock);
+                f.BlockTicks = GameConfig.ParryWindow + 1;
+                f.Facing = FixMath.RotateTowards(f.Facing, AngleTo(ref f, ref opp), GameConfig.TurnSpeed);
+                ApplyGroundFriction(ref f);
+                return;
+            }
+
             bool blockHeld = input.Held(InputButtons.Block);
-            if (blockHeld)
+            if (blockHeld && !crouchHeld)
             {
                 if (f.Action != FighterAction.Block)
                 {
@@ -225,11 +304,20 @@ namespace HEXBOUND.Simulation
                 return;
             }
 
+            if (crouchHeld)
+            {
+                // Crouch: stay low and still, turning toward the opponent when locked on.
+                if (f.Action != FighterAction.Crouch) SetAction(ref f, FighterAction.Crouch);
+                if (f.LockOn) f.Facing = FixMath.RotateTowards(f.Facing, AngleTo(ref f, ref opp), GameConfig.TurnSpeed);
+                else if (input.HasMove) f.Facing = FixMath.RotateTowards(f.Facing, input.MoveAngleFull, GameConfig.TurnSpeed);
+                ApplyGroundFriction(ref f);
+                return;
+            }
+
             if (input.HasMove)
             {
                 int dir = input.MoveAngleFull;
-                Fix speed = c.MoveSpeed;
-                if (f.Buff == BuffId.TwinBlades) speed = speed * c.BuffSpeedScale;
+                Fix speed = c.MoveSpeed * SpeedScale(ref f, c);
                 FixVec3 v = FixVec3.FromAngle(dir) * speed;
                 f.Velocity.X = v.X;
                 f.Velocity.Z = v.Z;
@@ -304,6 +392,12 @@ namespace HEXBOUND.Simulation
                 SetAction(ref f, FighterAction.Air);
                 return;
             }
+            if (previous == FighterAction.BlockStun && input.Held(InputButtons.Crouch) && input.Held(InputButtons.Heavy) && c.CrouchAttack != null)
+            {
+                SetAction(ref f, FighterAction.CrouchBlock);
+                f.BlockTicks = GameConfig.ParryWindow + 1;
+                return;
+            }
             if (previous == FighterAction.BlockStun && input.Held(InputButtons.Block))
             {
                 SetAction(ref f, FighterAction.Block);
@@ -343,11 +437,21 @@ namespace HEXBOUND.Simulation
                     move = c.Grab;
                     break;
                 case InputButtons.Heavy:
+                    if (!air && input.Held(InputButtons.Crouch) && c.CrouchAttack != null)
+                    {
+                        // C + right mouse is the low guard, handled as a held state.
+                        ConsumeBuffer(ref f);
+                        return false;
+                    }
                     if (air) move = buffed && c.BuffAirHeavy != null ? c.BuffAirHeavy : c.AirHeavy;
                     else move = buffed && c.BuffHeavy != null ? c.BuffHeavy : c.Heavy;
                     break;
                 case InputButtons.Light:
-                    if (air)
+                    if (!air && input.Held(InputButtons.Crouch) && c.CrouchAttack != null)
+                    {
+                        move = c.CrouchAttack;
+                    }
+                    else if (air)
                     {
                         move = buffed && c.BuffAirLight != null ? c.BuffAirLight : c.AirLight;
                     }
@@ -384,7 +488,7 @@ namespace HEXBOUND.Simulation
                     if (ev != null) ev.Add(s.Tick, SimEventType.Jump, index, 0, f.Position);
                     return true;
                 case InputButtons.Recharge:
-                    if (f.CooldownRecharge > 0 || f.Magic >= GameConfig.MaxMagic) return false;
+                    if (f.CooldownRecharge > 0 || f.Magic >= c.MaxMagic || c.Recharge == null) return false;
                     move = c.Recharge;
                     break;
                 case InputButtons.Heal:
@@ -556,7 +660,7 @@ namespace HEXBOUND.Simulation
             if (m.MagicGain > 0 && t == m.MagicGainTick)
             {
                 f.Magic += m.MagicGain;
-                if (f.Magic > GameConfig.MaxMagic) f.Magic = GameConfig.MaxMagic;
+                if (f.Magic > c.MaxMagic) f.Magic = c.MaxMagic;
                 if (ev != null) ev.Add(s.Tick, SimEventType.Recharge, index, m.MagicGain, f.Position);
             }
 

@@ -18,6 +18,7 @@ namespace HEXBOUND.Simulation
         Recharge = 1 << 9,
         LockOn = 1 << 10,
         Heal = 1 << 11,
+        Crouch = 1 << 12,
     }
 
     /// <summary>

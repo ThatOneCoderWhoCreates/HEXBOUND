@@ -16,9 +16,13 @@ namespace HEXBOUND.Simulation
             public Fix KnockbackV;
             public HitFlags Flags;
             public FixVec3 Source;
+            /// <summary>Where the attack comes from, for the block arc (the attacker, or the projectile).</summary>
+            public FixVec3 ArcSource;
             public int Direction;
             public bool FromProjectile;
             public int ProjectileSlot;
+            /// <summary>Overhead or air attack: goes through the low guard.</summary>
+            public bool Overhead;
         }
 
         private const int MaxPending = 8;
@@ -54,6 +58,7 @@ namespace HEXBOUND.Simulation
 
                     FixVec3 center = attacker.Position + FixVec3.FromAngle(attacker.Facing) * hb.Forward + FixVec3.Up * hb.Up;
                     if (!CanBeHit(ref defender, hb.Flags)) continue;
+                    if (Ducked(ref defender, center, hb.Flags)) continue;
                     if (!Overlaps(center, hb.Radius, ref defender)) continue;
 
                     if (hb.RehitInterval > 0) attacker.RehitTimer = hb.RehitInterval;
@@ -63,15 +68,17 @@ namespace HEXBOUND.Simulation
                     {
                         Attacker = a,
                         Defender = d,
-                        Damage = hb.Damage,
+                        Damage = ScaleDamage(s, ref attacker, hb.Damage),
                         Hitstun = hb.Hitstun,
                         Blockstun = hb.Blockstun,
                         KnockbackH = hb.KnockbackH,
                         KnockbackV = hb.KnockbackV,
                         Flags = hb.Flags,
                         Source = (hb.Flags & HitFlags.Radial) != 0 ? attacker.Position : center,
+                        ArcSource = attacker.Position,
                         Direction = attacker.Facing,
                         ProjectileSlot = -1,
+                        Overhead = (hb.Flags & HitFlags.Overhead) != 0 || !attacker.Grounded || m.Pose == MovePose.Overhead || m.Pose == MovePose.Slam,
                     };
                     break;
                 }
@@ -85,19 +92,21 @@ namespace HEXBOUND.Simulation
                 ref FighterState defender = ref s.Fighters[d];
                 ProjectileDef def = GameContent.Projectiles[p.DefId];
                 if (!CanBeHit(ref defender, def.Flags)) continue;
+                if (Ducked(ref defender, p.Position, def.Flags)) continue;
                 if (!Overlaps(p.Position, def.Radius, ref defender)) continue;
 
                 pending[count++] = new PendingHit
                 {
                     Attacker = p.Owner,
                     Defender = d,
-                    Damage = def.Damage,
+                    Damage = ScaleDamage(s, ref s.Fighters[p.Owner], def.Damage),
                     Hitstun = def.Hitstun,
                     Blockstun = def.Blockstun,
                     KnockbackH = def.KnockbackH,
                     KnockbackV = def.KnockbackV,
                     Flags = def.Flags,
                     Source = p.Position,
+                    ArcSource = p.Position,
                     Direction = p.Velocity.ToAngle(),
                     FromProjectile = true,
                     ProjectileSlot = i,
@@ -127,6 +136,27 @@ namespace HEXBOUND.Simulation
                 }
             }
             return true;
+        }
+
+        /// <summary>A crouching fighter is missed by attacks centered high on its body (grabs still connect).</summary>
+        private static bool Ducked(ref FighterState f, FixVec3 center, HitFlags flags)
+        {
+            if ((flags & HitFlags.Grab) != 0 || !FighterLogic.IsCrouched(ref f)) return false;
+            CharacterDef c = GameContent.GetCharacter(f.CharacterId);
+            return center.Y > f.Position.Y + c.Height * GameConfig.CrouchDuckPercent / 100;
+        }
+
+        /// <summary>Beast mode scales the beast's damage with its level; Awakened hits deal extra damage.</summary>
+        private static int ScaleDamage(GameState s, ref FighterState attacker, int damage)
+        {
+            CharacterDef c = GameContent.GetCharacter(attacker.CharacterId);
+            if (s.Setup.Mode == MatchMode.Beast && c.Stance == FighterStance.Beast)
+            {
+                int level = s.Setup.BeastLevel < 0 ? 0 : (s.Setup.BeastLevel > 10 ? 10 : s.Setup.BeastLevel);
+                damage = damage * (75 + 4 * level) / 100;
+            }
+            if (attacker.Buff == BuffId.Awakened) damage = damage * c.AwakenDamagePercent / 100;
+            return damage;
         }
 
         /// <summary>Sphere against the fighter's vertical capsule hurtbox.</summary>
@@ -162,9 +192,12 @@ namespace HEXBOUND.Simulation
             int stop = hit.Damage / 25 + 3;
             if (stop > 10) stop = 10;
 
-            if (blockable && d.Action == FighterAction.Block && InBlockArc(ref d, hit.Source))
+            d.LowGuardStun = false;
+            bool standingBlock = d.Action == FighterAction.Block && (hit.Flags & HitFlags.Low) == 0;
+            bool lowGuard = d.Action == FighterAction.CrouchBlock && !hit.Overhead;
+            if (blockable && (standingBlock || lowGuard) && InBlockArc(ref d, hit.ArcSource))
             {
-                if (d.BlockTicks <= GameConfig.ParryWindow)
+                if (standingBlock && d.BlockTicks <= GameConfig.ParryWindow)
                 {
                     if (ev != null) ev.Add(s.Tick, SimEventType.Parried, hit.Defender, hit.Attacker, d.Position + FixVec3.Up);
                     d.HitStop = 6;
@@ -183,7 +216,18 @@ namespace HEXBOUND.Simulation
 
                 int chip = hit.Damage * GameConfig.ChipPercent / 100;
                 FixVec3 push = PushDirection(ref d, ref hit) * (Fix.Abs(hit.KnockbackH) * Fix.Half + Fix.Milli(40));
-                if ((hit.Flags & HitFlags.GuardBreak) != 0)
+                if (lowGuard)
+                {
+                    // The low guard is never broken, but heavy hits wear it down faster.
+                    if ((hit.Flags & HitFlags.GuardBreak) != 0) chip = chip * 2;
+                    d.Action = FighterAction.BlockStun;
+                    d.ActionTicks = 0;
+                    d.StunTicks = hit.Blockstun;
+                    d.LowGuardStun = true;
+                    if (ev != null) ev.Add(s.Tick, SimEventType.Blocked, hit.Defender, chip, d.Position + FixVec3.Up * Fix.Half);
+                    stop = 4;
+                }
+                else if ((hit.Flags & HitFlags.GuardBreak) != 0)
                 {
                     chip = chip * 2;
                     d.Action = FighterAction.GuardBroken;
