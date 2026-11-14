@@ -85,11 +85,11 @@ namespace HEXBOUND.Presentation
             switch (f.Action)
             {
                 case FighterAction.Idle:
-                    if (boxer || c.Stance == FighterStance.Gunner) return false;
+                    if (boxer || c.Stance == FighterStance.Gunner || c.Weapon == "Staff") return false;
                     return Loop(lib, c.Weapon == "Sword" ? "Idle_with_a_sword" : "Idle_relaxed", idleTime, MocapMask.All, ref choice);
 
                 case FighterAction.Move:
-                    return Loop(lib, "Run_sprint", runTime, boxer || c.Stance == FighterStance.Gunner ? MocapMask.Legs | MocapMask.Spine : MocapMask.All, ref choice);
+                    return Loop(lib, "Run_sprint", runTime, boxer || c.Stance == FighterStance.Gunner || c.Weapon == "Staff" ? MocapMask.Legs | MocapMask.Spine : MocapMask.All, ref choice);
 
                 case FighterAction.Air:
                     if (flying) return false;

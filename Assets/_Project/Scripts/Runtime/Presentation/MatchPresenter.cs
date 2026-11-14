@@ -69,6 +69,7 @@ namespace HEXBOUND.Presentation
             {
                 Fighters[i].Sync(state, ref state.Fighters[i], alpha, deltaTime);
                 if (Fighters[i].StepThisFrame) _sfx.Play(Sfx.Footstep, i == _localIndex ? 0.35f : 0.22f, 0.1f);
+                if (Fighters[i].ChestBeatThisFrame) _sfx.Play(Sfx.BodySlam, 0.55f, 0.15f);
             }
             if (events != null) Effects.HandleEvents(events, state.Tick);
             Effects.SyncProjectiles(state);

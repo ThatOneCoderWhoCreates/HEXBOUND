@@ -112,6 +112,17 @@ namespace HEXBOUND.Simulation
                     Fix r = GameContent.Projectiles[a.DefId].Radius + GameContent.Projectiles[b.DefId].Radius;
                     if ((a.Position - b.Position).LengthSquared() <= r * r)
                     {
+                        bool aStays = GameContent.Projectiles[a.DefId].Unstoppable;
+                        bool bStays = GameContent.Projectiles[b.DefId].Unstoppable;
+                        if (aStays != bStays)
+                        {
+                            // The unstoppable one (golden dragon) swallows the other.
+                            if (aStays) b.Active = false;
+                            else a.Active = false;
+                            if (ev != null) ev.Add(s.Tick, SimEventType.ProjectileClash, a.Owner, a.SerialId, aStays ? b.Position : a.Position);
+                            if (!a.Active) break;
+                            continue;
+                        }
                         a.Active = false;
                         b.Active = false;
                         if (GameContent.Projectiles[a.DefId].ExplodeRadius > Fix.Zero) Explode(s, ref a, ev);

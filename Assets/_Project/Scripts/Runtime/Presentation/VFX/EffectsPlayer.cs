@@ -42,6 +42,97 @@ namespace HEXBOUND.Presentation
             public bool Seen;
             /// <summary>Points along its flight direction and does not pulse (missiles, bullets).</summary>
             public bool Oriented;
+            /// <summary>Golden dragon: the body segments that follow the head's path.</summary>
+            public DragonBody Dragon;
+        }
+
+        /// <summary>A serpent body made of glowing segments that follows the path the head flew along.</summary>
+        private sealed class DragonBody
+        {
+            public GameObject Root;
+            public Transform[] Segments;
+            public readonly List<Vector3> Path = new List<Vector3>();
+            public float Phase;
+        }
+
+        private const int DragonSegments = 26;
+        private const float DragonSpacing = 0.42f;
+
+        private DragonBody BuildDragonBody(Material glow)
+        {
+            var body = new DragonBody { Root = new GameObject("Golden Dragon Body") };
+            body.Root.transform.SetParent(_root, false);
+            body.Segments = new Transform[DragonSegments];
+            for (int i = 0; i < DragonSegments; i++)
+            {
+                float k = i / (float)(DragonSegments - 1);
+                GameObject seg = MaterialFactory.Primitive(PrimitiveType.Sphere, body.Root.transform, glow, "Segment " + i);
+                seg.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                float size = Mathf.Lerp(0.95f, 0.18f, k * k);
+                seg.transform.localScale = new Vector3(size, size * 0.85f, size * 1.4f);
+                if (i % 3 == 1 && i < DragonSegments - 4)
+                {
+                    // Back fins.
+                    GameObject fin = MaterialFactory.Primitive(PrimitiveType.Cube, seg.transform, glow, "Fin");
+                    fin.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                    fin.transform.localPosition = new Vector3(0f, 0.55f, -0.1f);
+                    fin.transform.localRotation = Quaternion.Euler(-35f, 0f, 0f);
+                    fin.transform.localScale = new Vector3(0.08f, 0.5f, 0.35f);
+                }
+                body.Segments[i] = seg.transform;
+            }
+            return body;
+        }
+
+        /// <summary>Moves the dragon's body along the recorded path with a swimming wave.</summary>
+        private static void UpdateDragonBody(DragonBody body, Vector3 head, Vector3 forward, float deltaTime)
+        {
+            List<Vector3> path = body.Path;
+            if (path.Count == 0 || (path[path.Count - 1] - head).sqrMagnitude > 0.0025f) path.Add(head);
+            if (path.Count > 400) path.RemoveRange(0, path.Count - 400);
+            body.Phase += deltaTime * 7f;
+
+            // Walk back along the path, dropping a segment every DragonSpacing meters.
+            int index = path.Count - 1;
+            Vector3 cursor = head;
+            Vector3 prev = head;
+            Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+            if (side.sqrMagnitude < 1e-4f) side = Vector3.right;
+            for (int i = 0; i < body.Segments.Length; i++)
+            {
+                float need = DragonSpacing * (i == 0 ? 0.9f : 1f);
+                Vector3 point = cursor;
+                bool found = false;
+                while (index >= 0)
+                {
+                    Vector3 target = path[index];
+                    float len = (cursor - target).magnitude;
+                    if (len >= need)
+                    {
+                        point = Vector3.Lerp(cursor, target, need / Mathf.Max(len, 1e-5f));
+                        cursor = point;
+                        found = true;
+                        break;
+                    }
+                    need -= len;
+                    cursor = target;
+                    index--;
+                }
+                // Past the start of the path the body trails straight back.
+                if (!found)
+                {
+                    point = cursor - forward * need;
+                    cursor = point;
+                }
+                float wave = Mathf.Sin(body.Phase - i * 0.55f);
+                float amp = Mathf.Lerp(0.15f, 0.55f, i / (float)body.Segments.Length);
+                Vector3 offset = side * wave * amp + Vector3.up * Mathf.Cos(body.Phase * 0.8f - i * 0.45f) * amp * 0.6f;
+                Transform t = body.Segments[i];
+                t.position = point + offset;
+                Vector3 dir = prev - point;
+                if (dir.sqrMagnitude > 1e-6f) t.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+                prev = point;
+            }
         }
 
         /// <summary>Raised for floating text (damage numbers, PARRY, GUARD BREAK...). Position is in world space.</summary>
@@ -90,6 +181,7 @@ namespace HEXBOUND.Presentation
             foreach (ProjectileView pv in _projectiles.Values)
             {
                 if (pv.Go != null) UnityEngine.Object.Destroy(pv.Go);
+                if (pv.Dragon != null && pv.Dragon.Root != null) UnityEngine.Object.Destroy(pv.Dragon.Root);
             }
             _projectiles.Clear();
             _played.Clear();
@@ -198,6 +290,15 @@ namespace HEXBOUND.Presentation
                 {
                     ProjectileDef def = e.Param >= 0 && e.Param < GameContent.Projectiles.Length ? GameContent.Projectiles[e.Param] : null;
                     float radius = def != null ? Mathf.Max(0.8f, def.ExplodeRadius.ToFloat()) : 1.5f;
+                    if (def != null && def.VisualId == StaffFighter.DragonVisual)
+                    {
+                        Flash(pos, new Color(9f, 6.5f, 2.2f), 0.35f, radius * 0.4f, radius * 1.6f);
+                        Ring(pos, new Color(6f, 4.2f, 1.2f), 0.5f, 0.4f, radius * 2.6f);
+                        Burst(pos, new Color(6f, 4.5f, 1.4f), 40, 10f, 0.9f, true);
+                        _sfx.Play(Sfx.Explosion, 1f);
+                        RaiseShake(0.9f);
+                        break;
+                    }
                     Vector3 ground = new Vector3(pos.x, Mathf.Max(pos.y, 0.05f), pos.z);
                     Flash(ground + Vector3.up * 0.4f, new Color(7f, 3.2f, 0.9f), 0.22f, radius * 0.4f, radius * 1.3f);
                     Flash(ground + Vector3.up * 0.4f, new Color(5f, 5f, 4f), 0.08f, radius * 0.2f, radius * 0.7f);
@@ -433,6 +534,15 @@ namespace HEXBOUND.Presentation
                 if (vel.sqrMagnitude > 1e-6f) view.Go.transform.rotation = Quaternion.LookRotation(vel.normalized, Vector3.up);
                 float pulse = view.Oriented ? 1f : 1f + Mathf.Sin(Time.unscaledTime * 25f + p.SerialId) * 0.1f;
                 view.Go.transform.localScale = Vector3.one * pulse;
+                if (view.Dragon != null)
+                {
+                    // The head weaves a little as it flies; the body follows its path.
+                    Vector3 fwd = vel.sqrMagnitude > 1e-6f ? vel.normalized : view.Go.transform.forward;
+                    Vector3 side = Vector3.Cross(Vector3.up, fwd).normalized;
+                    float t = Time.time * 4f + p.SerialId;
+                    view.Go.transform.position = pos + side * Mathf.Sin(t) * 0.35f + Vector3.up * Mathf.Sin(t * 0.7f) * 0.25f;
+                    UpdateDragonBody(view.Dragon, view.Go.transform.position, fwd, Time.deltaTime);
+                }
             }
 
             _removeList.Clear();
@@ -444,6 +554,7 @@ namespace HEXBOUND.Presentation
             {
                 ProjectileView pv = _projectiles[_removeList[i]];
                 if (pv.Go != null) UnityEngine.Object.Destroy(pv.Go);
+                if (pv.Dragon != null && pv.Dragon.Root != null) UnityEngine.Object.Destroy(pv.Dragon.Root);
                 _projectiles.Remove(_removeList[i]);
             }
         }
@@ -483,6 +594,72 @@ namespace HEXBOUND.Presentation
                 flameLight.range = 4.5f;
                 flameLight.intensity = 3f;
                 return new ProjectileView { Go = go, Trail = smoke, SerialId = p.SerialId, Oriented = true };
+            }
+            if (def.VisualId == StaffFighter.DragonVisual)
+            {
+                // Golden dragon: translucent glowing head with horns and eyes, a long swimming body and sparks.
+                Material gold = MaterialFactory.Additive(new Color(2.6f, 1.7f, 0.45f, 0.75f));
+                Material bright = MaterialFactory.Glow(new Color(8f, 6f, 2.5f));
+                Transform h = go.transform;
+                void Part(PrimitiveType type, Material mat, Vector3 at, Vector3 scale, Vector3 euler, string name)
+                {
+                    GameObject part = MaterialFactory.Primitive(type, h, mat, name);
+                    part.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                    part.transform.localPosition = at;
+                    part.transform.localRotation = Quaternion.Euler(euler);
+                    part.transform.localScale = scale;
+                }
+                Part(PrimitiveType.Sphere, gold, Vector3.zero, new Vector3(0.95f, 0.75f, 1.35f), Vector3.zero, "Skull");
+                Part(PrimitiveType.Sphere, gold, new Vector3(0f, -0.08f, 0.75f), new Vector3(0.6f, 0.42f, 1.0f), Vector3.zero, "Snout");
+                Part(PrimitiveType.Sphere, gold, new Vector3(0f, -0.42f, 0.55f), new Vector3(0.5f, 0.2f, 0.95f), new Vector3(18f, 0f, 0f), "Jaw");
+                Part(PrimitiveType.Capsule, gold, new Vector3(0.3f, 0.45f, -0.35f), new Vector3(0.1f, 0.55f, 0.1f), new Vector3(-55f, 0f, -20f), "Horn L");
+                Part(PrimitiveType.Capsule, gold, new Vector3(-0.3f, 0.45f, -0.35f), new Vector3(0.1f, 0.55f, 0.1f), new Vector3(-55f, 0f, 20f), "Horn R");
+                Part(PrimitiveType.Capsule, gold, new Vector3(0.35f, -0.25f, 0.95f), new Vector3(0.04f, 0.6f, 0.04f), new Vector3(-100f, 0f, -35f), "Whisker L");
+                Part(PrimitiveType.Capsule, gold, new Vector3(-0.35f, -0.25f, 0.95f), new Vector3(0.04f, 0.6f, 0.04f), new Vector3(-100f, 0f, 35f), "Whisker R");
+                Part(PrimitiveType.Sphere, bright, new Vector3(0.26f, 0.18f, 0.5f), Vector3.one * 0.14f, Vector3.zero, "Eye L");
+                Part(PrimitiveType.Sphere, bright, new Vector3(-0.26f, 0.18f, 0.5f), Vector3.one * 0.14f, Vector3.zero, "Eye R");
+
+                var sparks = new GameObject("Sparks");
+                sparks.transform.SetParent(h, false);
+                ParticleSystem ps = sparks.AddComponent<ParticleSystem>();
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                ParticleSystem.MainModule main = ps.main;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 1.1f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 1.6f);
+                main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.3f);
+                main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.85f, 0.4f), new Color(1f, 0.6f, 0.15f));
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                main.maxParticles = 400;
+                ParticleSystem.EmissionModule em = ps.emission;
+                em.rateOverTime = 160f;
+                ParticleSystem.ShapeModule shape = ps.shape;
+                shape.shapeType = ParticleSystemShapeType.Sphere;
+                shape.radius = 0.7f;
+                ParticleSystem.ColorOverLifetimeModule col = ps.colorOverLifetime;
+                col.enabled = true;
+                var g = new Gradient();
+                g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(1f, 0.6f, 0.2f), 1f) },
+                    new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+                col.color = g;
+                ParticleSystemRenderer pr = sparks.GetComponent<ParticleSystemRenderer>();
+                pr.sharedMaterial = MaterialFactory.ParticleAdditive(new Color(3f, 2.2f, 0.9f));
+                pr.shadowCastingMode = ShadowCastingMode.Off;
+                ps.Play();
+
+                var glow = new GameObject("Light").AddComponent<Light>();
+                glow.transform.SetParent(h, false);
+                glow.type = LightType.Point;
+                glow.color = new Color(1f, 0.75f, 0.3f);
+                glow.range = 9f;
+                glow.intensity = 5f;
+
+                Vector3 at = FighterView.ToVector(p.Position);
+                Flash(at, new Color(8f, 5.5f, 1.8f), 0.3f, 0.5f, 3.5f);
+                Burst(at, new Color(6f, 4f, 1.2f), 30, 7f, 0.7f, true);
+                _sfx.Play(Sfx.Buff, 1f, 0f);
+                _sfx.Play(Sfx.Explosion, 0.6f, 0.1f);
+                RaiseShake(0.5f);
+                return new ProjectileView { Go = go, SerialId = p.SerialId, Oriented = true, Dragon = BuildDragonBody(gold) };
             }
             if (def.VisualId == LauncherFighter.BulletVisual)
             {

@@ -107,8 +107,16 @@ namespace HEXBOUND.Presentation
             return new Vector3(x, y, z).normalized;
         }
 
-        public void Animate(ref FighterState f, CharacterDef c, float deltaTime, float horizontalSpeed, bool celebrating = false)
+        /// <summary>True on the frame a chest-beat strike lands (beast intro and victory).</summary>
+        public bool ChestBeatThisFrame { get; private set; }
+
+        private bool _intro;
+        private float _lastBeat;
+
+        public void Animate(ref FighterState f, CharacterDef c, float deltaTime, float horizontalSpeed, bool celebrating = false, bool intro = false)
         {
+            _intro = intro;
+            ChestBeatThisFrame = false;
             _time += deltaTime;
             _idleTime += deltaTime;
             _mocapRunTime += deltaTime * Mathf.Clamp(horizontalSpeed / 7f, 0.4f, 1.6f);
@@ -401,6 +409,25 @@ namespace HEXBOUND.Presentation
                 }
             }
 
+            if (c.Weapon == "Staff" && (f.Action == FighterAction.Idle || f.Action == FighterAction.Move || (f.Action == FighterAction.Air && !flying)))
+            {
+                // Staff held in front, tip angled up and forward; the off hand rests near it.
+                float sway = Mathf.Sin(_time * (f.Action == FighterAction.Move ? 9f : 2f)) * 0.05f;
+                p.UpperArmR = V(0.3f, -0.85f + sway, 0.35f);
+                p.ForeArmR = V(0.05f, 0.75f, 0.65f);
+                p.UpperArmL = V(-0.3f, -0.9f, 0.25f);
+                p.ForeArmL = V(0.15f, -0.4f, 0.9f);
+            }
+            if (c.HeavyIsGuard && (f.Action == FighterAction.Block || (f.Action == FighterAction.BlockStun && !f.LowGuardStun)))
+            {
+                // Guard: the staff held sideways in front of the body with both hands.
+                p.UpperArmR = V(0.55f, -0.45f, 0.7f);
+                p.ForeArmR = V(-1f, 0.12f, 0.2f);
+                p.UpperArmL = V(-0.45f, -0.4f, 0.8f);
+                p.ForeArmL = V(0.35f, 0.15f, 0.9f);
+                p.SpinePitch = f.Action == FighterAction.BlockStun ? 2f : 8f;
+            }
+
             if (_beast) BeastPose(ref p, ref f, c, dt, speed);
 
             if (f.Buff == BuffId.TwinBlades && f.Action == FighterAction.Attack)
@@ -473,6 +500,13 @@ namespace HEXBOUND.Presentation
             p.SpinePitch = breathe * 2f;
             p.BodyDrop = breathe * 0.02f;
 
+            if (_intro && (f.Action == FighterAction.Idle || f.Action == FighterAction.Move))
+            {
+                // Round intro: the beast pounds its chest.
+                ChestBeat(ref p, 13f);
+                return;
+            }
+
             switch (f.Action)
             {
                 case FighterAction.Move:
@@ -526,16 +560,8 @@ namespace HEXBOUND.Presentation
                     p.BodyDrop = f.Action == FighterAction.Landing ? 0.2f : 0f;
                     break;
                 case FighterAction.Victory:
-                {
-                    // Chest beating.
-                    float beat = Mathf.Sin(_time * 12f);
-                    p.UpperArmL = V(-0.3f, 0.2f, 0.9f);
-                    p.ForeArmL = V(beat > 0f ? 0.8f : 0.3f, 0.2f, 0.4f);
-                    p.UpperArmR = V(0.3f, 0.2f, 0.9f);
-                    p.ForeArmR = V(beat > 0f ? -0.3f : -0.8f, 0.2f, 0.4f);
-                    p.SpinePitch = -12f;
+                    ChestBeat(ref p, 12f);
                     break;
-                }
                 case FighterAction.Launched:
                 case FighterAction.Knockdown:
                 case FighterAction.KO:
@@ -553,6 +579,20 @@ namespace HEXBOUND.Presentation
                     break;
                 }
             }
+        }
+
+        /// <summary>Gorilla chest beat: fists alternate against the chest while the beast rears up.</summary>
+        private void ChestBeat(ref Pose p, float speed)
+        {
+            float beat = Mathf.Sin(_time * speed);
+            p.UpperArmL = V(-0.55f, 0.05f, 0.85f);
+            p.UpperArmR = V(0.55f, 0.05f, 0.85f);
+            p.ForeArmL = beat > 0f ? V(0.85f, 0.15f, -0.45f) : V(0.2f, 0.5f, 0.8f);
+            p.ForeArmR = beat > 0f ? V(-0.2f, 0.5f, 0.8f) : V(-0.85f, 0.15f, -0.45f);
+            p.SpinePitch = -16f;
+            p.BodyDrop = -0.04f;
+            if (Mathf.Sign(beat) != Mathf.Sign(_lastBeat)) ChestBeatThisFrame = true;
+            _lastBeat = beat;
         }
 
         private void BeastAttackPose(ref Pose p, ref FighterState f, MoveDef m)
@@ -591,6 +631,18 @@ namespace HEXBOUND.Presentation
                     }
                     p.SpineYaw = sign * Mathf.Lerp(30f, -30f, ease) * back;
                     p.SpinePitch = 6f;
+                    break;
+                }
+                case MovePose.JabLeft:
+                {
+                    // Heavy left punch.
+                    Vector3 pulledL = V(-0.45f, 0.2f, -0.7f);
+                    Vector3 strikeL = V(-0.05f, 0.1f, 1f);
+                    Vector3 dirL = t < start ? Vector3.Slerp(restUAL, pulledL, wind) : Vector3.Slerp(strikeL, restUAL, recover);
+                    p.UpperArmL = dirL;
+                    p.ForeArmL = t < start ? Vector3.Slerp(restFAL, V(-0.3f, 0.5f, 0.3f), wind) : dirL;
+                    p.SpineYaw = t < start ? -30f * wind : Mathf.Lerp(22f, 0f, recover);
+                    p.SpinePitch = t < start ? -6f * wind : 10f * back;
                     break;
                 }
                 case MovePose.Thrust:
@@ -927,6 +979,22 @@ namespace HEXBOUND.Presentation
                     p.BodyDrop = 0.06f + recoil * 0.05f;
                     p.ThighL = V(-0.25f, -1f, 0.35f);
                     p.ThighR = V(0.25f, -1f, -0.3f);
+                    break;
+                }
+                case MovePose.Lunge:
+                {
+                    // Low slide, weapon tip leading toward the opponent.
+                    float k = t < start ? wind : 1f - recover;
+                    p.ThighL = Vector3.Slerp(V(-0.15f, -1f, 0.1f), V(-0.2f, -0.35f, 0.95f), k);
+                    p.CalfL = Vector3.Slerp(V(-0.06f, -1f, -0.05f), V(-0.1f, -1f, -0.2f), k);
+                    p.ThighR = Vector3.Slerp(V(0.15f, -1f, -0.05f), V(0.2f, -0.6f, -0.8f), k);
+                    p.CalfR = Vector3.Slerp(V(0.06f, -1f, -0.1f), V(0.1f, -0.1f, -1f), k);
+                    p.UpperArmR = Vector3.Slerp(V(0.3f, -0.8f, 0.4f), V(0.15f, -0.15f, 1f), k);
+                    p.ForeArmR = Vector3.Slerp(V(0.05f, 0.6f, 0.8f), V(0.02f, 0.05f, 1f), k);
+                    p.UpperArmL = Vector3.Slerp(V(-0.3f, -0.9f, 0.25f), V(-0.2f, -0.3f, 0.95f), k);
+                    p.ForeArmL = Vector3.Slerp(V(0.15f, -0.4f, 0.9f), V(0.35f, 0f, 0.95f), k);
+                    p.SpinePitch = 26f * k;
+                    p.BodyDrop = 0.45f * _restPelvisHeight * k;
                     break;
                 }
                 case MovePose.Shoot:

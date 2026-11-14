@@ -25,6 +25,8 @@ namespace HEXBOUND.Presentation
         /// <summary>Glowing swipe trails on the striking hand / weapon tip, shown during attacks.</summary>
         public TrailRenderer TrailR;
         public TrailRenderer TrailL;
+        /// <summary>Beast: fire blasting from the shoulder exhausts while it is awakened.</summary>
+        public GameObject ExhaustFire;
         public Renderer[] Renderers;
         public Material AccentMaterial;
     }
@@ -184,7 +186,8 @@ namespace HEXBOUND.Presentation
             belt.transform.localScale = new Vector3(0.36f, 0.025f, 0.3f) * h;
 
             // Weapon held in the right hand, pointing along the arm (the T-pose arm points along +X).
-            BuildWeapon(character.Weapon, hR, h, trim, baseColor);
+            bool hasWeaponModel = !string.IsNullOrEmpty(character.WeaponModel) && Resources.Load<GameObject>("Fighters/" + character.WeaponModel) != null;
+            if (!hasWeaponModel) BuildWeapon(character.Weapon, hR, h, trim, baseColor);
 
             var rig = new PoseRig
             {
@@ -274,6 +277,125 @@ namespace HEXBOUND.Presentation
             }
         }
 
+        /// <summary>
+        /// Two fire jets from the back of the beast's shoulder pods. Positions come from the model: the pods sit
+        /// about 0.52 model units above the chest bone, 0.47 to each side and 0.45 behind it (model shoulder span 1.2).
+        /// </summary>
+        private static GameObject BuildExhaust(FighterVisual visual, PoseRig rig)
+        {
+            Transform body = visual.Body;
+            Vector3 chest = body.InverseTransformPoint(rig.Chest.position);
+            Vector3 l = body.InverseTransformPoint(rig.UpperArmL.position);
+            Vector3 r = body.InverseTransformPoint(rig.UpperArmR.position);
+            float unit = Mathf.Max(0.1f, (r - l).magnitude / 1.2f);
+            var root = new GameObject("Exhaust Fire");
+            root.transform.SetParent(rig.Chest, true);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 local = chest + new Vector3(side * 0.47f, 0.52f, -0.45f) * unit;
+                var go = new GameObject(side < 0 ? "Exhaust L" : "Exhaust R");
+                go.transform.SetParent(root.transform, false);
+                go.transform.position = body.TransformPoint(local);
+                go.transform.rotation = body.rotation * Quaternion.LookRotation(new Vector3(0f, 0.75f, -1f).normalized, Vector3.up);
+                Fire(go, unit);
+                var lightGo = new GameObject("Exhaust Light");
+                lightGo.transform.SetParent(go.transform, false);
+                Light light = lightGo.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.color = new Color(0.85f, 0.4f, 1f);
+                light.range = 4f * unit;
+                light.intensity = 4f;
+            }
+            root.SetActive(false);
+            return root;
+        }
+
+        private static void Fire(GameObject go, float unit)
+        {
+            ParticleSystem ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule main = ps.main;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.5f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(3.5f * unit, 6f * unit);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.35f * unit, 0.7f * unit);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.75f, 0.35f), new Color(0.9f, 0.45f, 1f));
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 300;
+            main.gravityModifier = -0.4f;
+            ParticleSystem.EmissionModule emission = ps.emission;
+            emission.rateOverTime = 90f;
+            ParticleSystem.ShapeModule shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 12f;
+            shape.radius = 0.12f * unit;
+            ParticleSystem.SizeOverLifetimeModule size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.6f));
+            ParticleSystem.ColorOverLifetimeModule col = ps.colorOverLifetime;
+            col.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(new Color(1f, 0.95f, 0.8f), 0f), new GradientColorKey(new Color(1f, 0.45f, 0.15f), 0.3f), new GradientColorKey(new Color(0.6f, 0.2f, 1f), 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.8f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            col.color = gradient;
+            ParticleSystem.NoiseModule noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.6f;
+            noise.frequency = 1.5f;
+            ParticleSystemRenderer renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = MaterialFactory.ParticleAdditive(new Color(2.5f, 1.6f, 1.6f));
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            ps.Play();
+        }
+
+        /// <summary>World length of the mage's staff, and where along it the hand grips (fraction from the butt).</summary>
+        private const float StaffWorldLength = 1.9f;
+        private const float StaffGrip = 0.2f;
+
+        /// <summary>
+        /// Puts a weapon model (Resources/Fighters/&lt;WeaponModel&gt;, a staff modeled along +Y) in the right hand,
+        /// pointing along the forearm with the grip at the hand. Returns the distance from the hand to the tip, or 0.
+        /// </summary>
+        private static float AttachWeaponModel(FighterVisual visual, CharacterDef character)
+        {
+            PoseRig rig = visual.Rig;
+            if (string.IsNullOrEmpty(character.WeaponModel) || rig == null || rig.HandR == null || rig.ForeArmR == null) return 0f;
+            GameObject prefab = Resources.Load<GameObject>("Fighters/" + character.WeaponModel);
+            if (prefab == null) return 0f;
+            GameObject weapon = Object.Instantiate(prefab);
+            weapon.name = "Weapon " + character.WeaponModel;
+            foreach (Animator a in weapon.GetComponentsInChildren<Animator>(true)) a.enabled = false;
+
+            // Measure the model's length along its own up axis.
+            Bounds local = new Bounds(Vector3.zero, Vector3.zero);
+            bool any = false;
+            foreach (Renderer r in weapon.GetComponentsInChildren<Renderer>(true))
+            {
+                Bounds b = r.bounds;
+                if (!any) { local = b; any = true; }
+                else local.Encapsulate(b);
+                r.shadowCastingMode = ShadowCastingMode.On;
+            }
+            float modelLength = any ? Mathf.Max(0.01f, local.size.y) : 2f;
+            float scale = StaffWorldLength / modelLength;
+
+            Transform hand = rig.HandR;
+            Vector3 along = (hand.position - rig.ForeArmR.position).normalized;
+            var holder = new GameObject("Weapon Holder").transform;
+            holder.SetParent(hand, false);
+            holder.position = hand.position;
+            holder.rotation = Quaternion.FromToRotation(Vector3.up, along);
+            weapon.transform.SetParent(holder, false);
+            float lossy = Mathf.Max(holder.lossyScale.x, 1e-4f);
+            weapon.transform.localScale = Vector3.one * (scale / lossy);
+            weapon.transform.localRotation = Quaternion.identity;
+            // Grip point (StaffGrip of the length from the butt) sits in the hand.
+            weapon.transform.localPosition = new Vector3(0f, -(local.min.y + modelLength * StaffGrip) * scale / lossy, 0f);
+            return StaffWorldLength * (1f - StaffGrip) * 0.95f;
+        }
+
         private static TrailRenderer MakeTrail(Transform hand, Transform forearm, float worldReach, Color accentHdr, float width)
         {
             var go = new GameObject("Swipe Trail");
@@ -297,6 +419,7 @@ namespace HEXBOUND.Presentation
         private static void BuildExtras(FighterVisual visual, CharacterDef character, Color accentHdr, int playerIndex)
         {
             PoseRig rig = visual.Rig;
+            float weaponReach = AttachWeaponModel(visual, character);
 
             // Second sword for Twin Blades, held in the left hand along the arm.
             if (character.UltimateBuff == BuffId.TwinBlades && rig.HandL != null && rig.ForeArmL != null)
@@ -353,12 +476,17 @@ namespace HEXBOUND.Presentation
             // Swipe trails: from the weapon tip (sword, staff) or the fists.
             if (rig.HandR != null && rig.ForeArmR != null && character.SecondaryWeapon == null)
             {
-                float reach = character.Weapon == "Sword" ? 1.0f : character.Weapon == "Staff" ? 1.1f : character.Weapon == "Wand" ? 0.45f : 0.12f;
+                float reach = weaponReach > 0f ? weaponReach : character.Weapon == "Sword" ? 1.0f : character.Weapon == "Staff" ? 1.1f : character.Weapon == "Wand" ? 0.45f : 0.12f;
                 visual.TrailR = MakeTrail(rig.HandR, rig.ForeArmR, reach, accentHdr, character.Weapon == "Fists" || character.Stance == FighterStance.Beast ? 0.18f : 0.12f);
                 if (rig.HandL != null && rig.ForeArmL != null && (character.Weapon == "Fists" || character.Stance == FighterStance.Beast || character.UltimateBuff == BuffId.TwinBlades))
                 {
                     visual.TrailL = MakeTrail(rig.HandL, rig.ForeArmL, character.UltimateBuff == BuffId.TwinBlades ? 1.0f : 0.12f, accentHdr, 0.16f);
                 }
+            }
+
+            if (character.Stance == FighterStance.Beast && rig.Chest != null && rig.UpperArmL != null && rig.UpperArmR != null)
+            {
+                visual.ExhaustFire = BuildExhaust(visual, rig);
             }
 
             var aura = new GameObject("Aura");

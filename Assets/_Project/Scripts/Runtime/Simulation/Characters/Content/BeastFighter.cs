@@ -11,18 +11,18 @@ namespace HEXBOUND.Simulation
         {
             var c = new CharacterDef
             {
-                Name = "Chimera",
-                Title = "The Ethereal Beast",
+                Name = "Gorath",
+                Title = "The Hexbound Beast",
                 Weapon = "Fists",
                 ModelName = "Beast",
                 Stance = FighterStance.Beast,
-                Description = "A huge beast that learns how you fight. No magic, crushing punches, and it awakens when hurt.",
+                Description = "A huge armored gorilla that learns how you fight. Slow, no magic, crushing punches, and it awakens when hurt.",
                 Selectable = false,
                 MaxHealth = 1300,
                 MaxMagic = 0,
                 Radius = ContentBuilder.M(750),
                 Height = ContentBuilder.M(2700),
-                MoveSpeed = ContentBuilder.M(94),
+                MoveSpeed = ContentBuilder.M(88),
                 AirSpeed = ContentBuilder.M(80),
                 JumpVelocity = ContentBuilder.M(290),
                 KnockbackScale = ContentBuilder.M(600),
@@ -32,7 +32,7 @@ namespace HEXBOUND.Simulation
                 AwakenPercent = 30,
                 AwakenDamagePercent = 125,
                 UltimateBuff = BuffId.Awakened,
-                BuffSpeedScale = ContentBuilder.M(1300),
+                BuffSpeedScale = ContentBuilder.M(1350),
             };
             common.ApplyTo(c);
             c.Recharge = null;
@@ -40,8 +40,8 @@ namespace HEXBOUND.Simulation
 
             c.LightChain = new[]
             {
-                Swipe(b, "Claw Swipe", MovePose.Swing, 26, 9, 50),
-                Swipe(b, "Back Swipe", MovePose.SwingReverse, 28, 10, 55),
+                Punch(b, "Heavy Jab", MovePose.JabLeft, 28, 10, 60),
+                Punch(b, "Heavy Cross", MovePose.Thrust, 30, 11, 65),
                 HammerFist(b, "Hammer Fist", 40, 16),
             };
             c.Heavy = CrushingPunch(b, "Crushing Punch", 52, 20);
@@ -49,8 +49,8 @@ namespace HEXBOUND.Simulation
             // Awakened versions: the same attacks, a few ticks faster.
             c.BuffLightChain = new[]
             {
-                Swipe(b, "Claw Swipe+", MovePose.Swing, 21, 6, 50),
-                Swipe(b, "Back Swipe+", MovePose.SwingReverse, 22, 7, 55),
+                Punch(b, "Heavy Jab+", MovePose.JabLeft, 22, 7, 60),
+                Punch(b, "Heavy Cross+", MovePose.Thrust, 23, 7, 65),
                 HammerFist(b, "Hammer Fist+", 32, 12),
             };
             c.BuffHeavy = CrushingPunch(b, "Crushing Punch+", 40, 14);
@@ -157,15 +157,15 @@ namespace HEXBOUND.Simulation
                 new AbilityInfo { Key = "Q", Name = "Ground Slam", Description = "Shockwave all around. Overhead." },
                 new AbilityInfo { Key = "E", Name = "Pounce", Description = "Leaps at you and crashes down." },
                 new AbilityInfo { Key = "R", Name = "Rampage", Description = "A storm of punches, then a launching double-fist." },
-                new AbilityInfo { Key = "!", Name = "Primal Awakening", Description = "At 30% health: roars, heals 10%, and turns faster and stronger." },
+                new AbilityInfo { Key = "!", Name = "Primal Awakening", Description = "At 30% health: roars, heals 10%, fire bursts from its shoulder exhausts, and it turns faster and stronger." },
             };
             return c;
         }
 
-        private static MoveDef Swipe(ContentBuilder b, string name, MovePose pose, int total, int start, int damage)
+        private static MoveDef Punch(ContentBuilder b, string name, MovePose pose, int total, int start, int damage)
         {
             MoveDef m = b.Move(name, total, pose);
-            var hit = ContentBuilder.Hit(start, start + 3, 1750, 1200, 950, damage);
+            var hit = ContentBuilder.Hit(start, start + 3, 1800, 1200, 900, damage);
             hit.Hitstun = 20;
             hit.Blockstun = 12;
             hit.KnockbackH = ContentBuilder.M(120);

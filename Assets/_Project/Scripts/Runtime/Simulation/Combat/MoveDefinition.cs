@@ -115,6 +115,8 @@ namespace HEXBOUND.Simulation
         public bool Downward;
         /// <summary>Falls from the sky above the opponent: SpawnUp is the height, SpawnForward the ring radius, the spawn angle offset the ring angle.</summary>
         public bool FromSky;
+        /// <summary>Not destroyed by other projectiles (it destroys them instead), like the golden dragon.</summary>
+        public bool Unstoppable;
     }
 
     public sealed class MoveDef
@@ -197,5 +199,7 @@ namespace HEXBOUND.Simulation
         Aim,
         /// <summary>Pistol shot with one arm extended.</summary>
         Shoot,
+        /// <summary>Low forward slide with the weapon tip leading.</summary>
+        Lunge,
     }
 }

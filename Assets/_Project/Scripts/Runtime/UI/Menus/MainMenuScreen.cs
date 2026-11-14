@@ -65,26 +65,27 @@ namespace HEXBOUND.UI
             "Source: https://skfb.ly/oPwnF\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
-            "<b>4. Ethereal Chimera (the Beast)</b>\n" +
-            "Creator: iamlazy (sketchfab.com/iamrob88)\n" +
-            "Source: sketchfab.com/3d-models/ethereal-chimera-7673d3d79f0a45bb9a917cb881e2c558\n" +
-            "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
-            "Changes: a skeleton was added so it can be animated.";
+            "<b>4. Gorath (the Beast)</b>\n" +
+            "Model by Pixtel Studios, made with Modly.\n" +
+            "A skeleton was added so it can be animated.\n\n" +
+            "<b>5. Bram, the Dragon Mage, and his staff</b>\n" +
+            "Models by Pixtel Studios, made with Modly.\n" +
+            "A skeleton was added so it can be animated.";
 
         private const string EnvironmentText =
             "<b>ENVIRONMENT</b>\n\n" +
-            "<b>5. Floating Island With Roots And Rocks</b>\n" +
+            "<b>6. Floating Island With Roots And Rocks</b>\n" +
             "Creator: Dennis\n" +
             "Source: https://skfb.ly/pFGQN\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
-            "<b>6. Low Poly Lava Fighting Arena/Stage</b>\n" +
+            "<b>7. Low Poly Lava Fighting Arena/Stage</b>\n" +
             "Creator: Umar\n" +
             "Source: https://skfb.ly/pzYyM\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
             "<b>ANIMATIONS</b>\n\n" +
-            "<b>7. KinemIQ Animation Library</b>\n" +
+            "<b>8. KinemIQ Animation Library</b>\n" +
             "Source: https://kinemiq.app/\n" +
             "Licence: Depends on the individual animation used.\n" +
             "Attribution: Required for animations licensed under CC BY.\n" +

@@ -22,6 +22,9 @@ namespace HEXBOUND.Presentation
         /// <summary>True on the frame a foot lands while running (for footstep sounds).</summary>
         public bool StepThisFrame { get; private set; }
 
+        /// <summary>True on the frame the beast's fist hits its chest (for the thump sound).</summary>
+        public bool ChestBeatThisFrame { get; private set; }
+
         public FighterView(CharacterDef character, Transform parent, int index)
         {
             Index = index;
@@ -77,7 +80,8 @@ namespace HEXBOUND.Presentation
 
             Vector3 v = ToVector(f.Velocity);
             v.y = 0f;
-            _animator.Animate(ref f, Character, deltaTime, v.magnitude * GameConfig.TickRate);
+            _animator.Animate(ref f, Character, deltaTime, v.magnitude * GameConfig.TickRate, false, state.Phase == MatchPhase.Intro);
+            ChestBeatThisFrame = _animator.ChestBeatThisFrame;
 
             int step = Mathf.FloorToInt(_animator.RunPhase / Mathf.PI);
             StepThisFrame = step != _lastStep && f.Action == FighterAction.Move && f.Grounded;
@@ -86,6 +90,7 @@ namespace HEXBOUND.Presentation
             _punch = Mathf.MoveTowards(_punch, 0f, deltaTime * 4f);
             Visual.Body.localScale = new Vector3(1f + _punch * 0.08f, 1f - _punch * 0.06f, 1f + _punch * 0.08f);
 
+            if (Visual.ExhaustFire != null && Visual.ExhaustFire.activeSelf != (f.Buff == BuffId.Awakened)) Visual.ExhaustFire.SetActive(f.Buff == BuffId.Awakened);
             if (Visual.PrimaryProp != null) Visual.PrimaryProp.SetActive(f.WeaponMode == 0);
             if (Visual.SecondaryProp != null) Visual.SecondaryProp.SetActive(f.WeaponMode == 1);
 

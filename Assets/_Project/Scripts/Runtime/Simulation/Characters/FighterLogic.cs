@@ -304,7 +304,7 @@ namespace HEXBOUND.Simulation
                 return;
             }
 
-            bool blockHeld = input.Held(InputButtons.Block);
+            bool blockHeld = input.Held(InputButtons.Block) || (c.HeavyIsGuard && input.Held(InputButtons.Heavy));
             if (blockHeld && !crouchHeld)
             {
                 if (f.Action != FighterAction.Block)
@@ -415,7 +415,7 @@ namespace HEXBOUND.Simulation
                 f.BlockTicks = GameConfig.ParryWindow + 1;
                 return;
             }
-            if (previous == FighterAction.BlockStun && input.Held(InputButtons.Block))
+            if (previous == FighterAction.BlockStun && (input.Held(InputButtons.Block) || (c.HeavyIsGuard && input.Held(InputButtons.Heavy))))
             {
                 SetAction(ref f, FighterAction.Block);
                 // Returning to block after blockstun does not open a new parry window.
@@ -467,6 +467,12 @@ namespace HEXBOUND.Simulation
                     if (!air && input.Held(InputButtons.Crouch) && c.CrouchAttack != null)
                     {
                         // C + right mouse is the low guard, handled as a held state.
+                        ConsumeBuffer(ref f);
+                        return false;
+                    }
+                    if (!air && c.HeavyIsGuard)
+                    {
+                        // Right mouse is this fighter's guard (held state), not an attack.
                         ConsumeBuffer(ref f);
                         return false;
                     }

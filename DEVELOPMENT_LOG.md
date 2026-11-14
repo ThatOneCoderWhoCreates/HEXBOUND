@@ -4,6 +4,46 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-15: Bram becomes the Dragon Mage (new model, staff, moves, golden dragon)
+
+### Request (Tanmay)
+Add the mage (mage_colored.glb) with his long staff (mageweapon_colored.glb). Left click: swing from the left, swing from the right, then push the enemy away. C + left click: slide forward with the pointy end toward the enemy. Right click: staff held sideways with both hands to defend. Ultimate: a translucent golden dragon that flies straight out and attacks (reference video provided).
+
+### Changes
+- Models: mage reduced from 280,000 to 56,000 triangles, white emission from the export removed, 17-bone skeleton generated (robe and cape follow the hips). Saved as Resources/Fighters/Staff.glb. The staff is Resources/Fighters/MageWeapon.glb, held in the right hand near the butt, tip pointing along the forearm.
+- Bram (StaffFighter.cs), now "The Dragon Mage": Left Swing, Right Swing, Repelling Thrust (big push). Right click is a guard (CharacterDef.HeavyIsGuard; blocks and parries like Ctrl) with the staff held sideways. C + left click: Dragon Slide (low slide, about 4.9 m, beats a standing block). Q Flurry and E Shockwave kept. R Golden Dragon (300 magic): flies straight from the staff for about 26 m, 150 damage plus a golden blast, swallows other projectiles (ProjectileDef.Unstoppable).
+- Golden dragon visual: translucent glowing gold head (horns, whiskers, bright eyes), a 26-segment body with back fins that swims along the head's path, gold sparks, light, a gold flash and roar on release and a gold blast on impact.
+- Poses: staff held up and forward when idle or running, sideways staff guard, low lunge for the slide. Swipe trail along the staff.
+- Note: X stays "recharge magic" for every fighter; the dragon is on R (the ultimate key).
+
+### Verified
+All assemblies compile; all automated tests pass, including new ones: right click guard blocks, slide distance and hit, the dragon flies straight, swallows a bolt and hits for 150.
+
+### Not verified yet
+How the mage model, staff placement, guard pose and the dragon look in Unity.
+
+---
+
+## 2026-11-15: New beast model (Gorath)
+
+### Request (Tanmay)
+Use gorilla_colored.glb (made with Modly) as the beast. Chest beat at the start, jump and pound the ground with both arms, punches, slow but strong; at low health faster, heal about 10%, and fire from the shoulder exhausts.
+
+### Changes
+- Model: 569,000 triangles reduced to 80,000 (vertex colors kept), brightened, red accents split into a glowing material, uniform white emission from the export removed. A 17-bone skeleton and skin weights were generated and saved as Resources/Fighters/Beast.glb (replaces the Chimera).
+- Beast renamed Gorath (placeholder name). Light attacks are now heavy punches (left jab, right cross, hammer fist); move speed 0.088 (was 0.094); awakened speed bonus 35%.
+- Animation: chest beat with thump sounds during the round intro and on victory; double-fist ground pound for Pounce, Ground Slam and the air plunge; left and right punch poses.
+- Awakening (30% health): roar, 10% heal, and two fire jets from the back of the shoulder pods (orange to purple, with light) for the rest of the round.
+- Credits: Chimera entries removed; Gorath credited to Pixtel Studios (made with Modly).
+
+### Verified
+All assemblies compile; all automated tests pass (EditMode 20/20, determinism soak, rollback, roster, beast learning).
+
+### Not verified yet
+How the new model, its skinning, the chest beat and the exhaust fire look in Unity.
+
+---
+
 ## 2026-11-14: Bram and Vex, 1000 magic, flight, bot difficulty, arcade, preview, visuals
 
 ### Request (Tanmay)

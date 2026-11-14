@@ -12,7 +12,10 @@ Player-facing game name: **WUSHEN**, developed by **Pixtel Studios** (HEXBOUND i
 
 - **KinemIQ Free Animation Pack** (KinemIQ, https://kinemiq.app), CC0 (public domain), built on the Quaternius Universal skeleton. Motion-capture clips and mannequin in `Assets/_Project/Resources/Animations/KinemIQ/`, with the original README. Credit is optional but appreciated.
 
-- **"Ethereal Chimera"** by iamlazy (https://sketchfab.com/iamrob88), https://sketchfab.com/3d-models/ethereal-chimera-7673d3d79f0a45bb9a917cb881e2c558, licensed under CC-BY-4.0. Used as the beast (Assets/_Project/Resources/Fighters/Beast.glb). Modified: a skeleton was added so it can be animated.
+
+- **Gorath, the Beast** (`Assets/_Project/Resources/Fighters/Beast.glb`): model by Pixtel Studios, made with Modly. Reduced to 80,000 triangles and given a skeleton for animation.
+
+- **Bram, the Dragon Mage, and his staff** (`Assets/_Project/Resources/Fighters/Staff.glb`, `MageWeapon.glb`): models by Pixtel Studios, made with Modly. The mage was reduced to 56,000 triangles and given a skeleton for animation; the staff is unchanged.
 
 ## Audio
 

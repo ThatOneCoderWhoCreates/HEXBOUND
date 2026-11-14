@@ -63,6 +63,10 @@ namespace HEXBOUND.Simulation
 
         /// <summary>Name of the secondary weapon (mouse wheel swaps). Null means the fighter has one weapon.</summary>
         public string SecondaryWeapon;
+        /// <summary>Model in Resources/Fighters held in the right hand (for example the mage's staff). Empty means none.</summary>
+        public string WeaponModel = string.Empty;
+        /// <summary>Right mouse is a guard (the staff held sideways) instead of a heavy attack on the ground.</summary>
+        public bool HeavyIsGuard;
         /// <summary>Moves used with the secondary weapon (null keeps the primary move).</summary>
         public MoveDef[] AltLightChain;
         public MoveDef AltHeavy;

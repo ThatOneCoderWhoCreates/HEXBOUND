@@ -102,6 +102,53 @@ namespace HEXBOUND.Presentation
             return m;
         }
 
+        private static Texture2D _softDot;
+
+        /// <summary>A round, soft-edged white texture for particles.</summary>
+        public static Texture2D SoftDot
+        {
+            get
+            {
+                if (_softDot != null) return _softDot;
+                const int size = 64;
+                _softDot = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Soft Dot", wrapMode = TextureWrapMode.Clamp };
+                var pixels = new Color32[size * size];
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        float dx = (x + 0.5f) / size * 2f - 1f;
+                        float dy = (y + 0.5f) / size * 2f - 1f;
+                        float a = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
+                        a = a * a * (3f - 2f * a);
+                        pixels[y * size + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                    }
+                }
+                _softDot.SetPixels32(pixels);
+                _softDot.Apply();
+                return _softDot;
+            }
+        }
+
+        /// <summary>Additive particle material with a soft round texture (fire, sparks, glow).</summary>
+        public static Material ParticleAdditive(Color hdr)
+        {
+            Shader shader = FindShader("Universal Render Pipeline/Particles/Unlit", "Particles_Additive");
+            var m = new Material(shader);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 2f);
+            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+            m.SetFloat("_ZWrite", 0f);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            m.SetColor("_BaseColor", hdr);
+            m.SetTexture("_BaseMap", SoftDot);
+            m.mainTexture = SoftDot;
+            return m;
+        }
+
         public static void SetColor(Material m, Color c)
         {
             m.SetColor(BaseColor, c);
