@@ -19,6 +19,8 @@ namespace HEXBOUND.Simulation
         LockOn = 1 << 10,
         Heal = 1 << 11,
         Crouch = 1 << 12,
+        /// <summary>Mouse wheel: swap primary and secondary weapon (Launcher).</summary>
+        SwitchWeapon = 1 << 13,
     }
 
     /// <summary>

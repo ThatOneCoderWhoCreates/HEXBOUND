@@ -53,6 +53,15 @@ namespace HEXBOUND.App
         private BeastBrain _beast;
         private BeastMemory _beastMemory;
         private bool _beastRecorded;
+        private FighterPreview _preview;
+
+        // Arcade tower.
+        private bool _arcade;
+        private int[] _arcadeOrder;
+        private int _arcadeStage;
+        private int _arcadePlayer;
+        private bool _arcadeAdvance;
+        private BeastMemory _arcadeMemory;
         private MatchSetup _offlineSetup;
         private SelectMode _offlineMode;
         private BotMode _trainingBotMode = BotMode.Idle;
@@ -95,12 +104,14 @@ namespace HEXBOUND.App
             _music = new MusicPlayer(transform);
             _presenter = new MatchPresenter(transform, _sfx);
             _presenter.ShowHitboxes = GameSettings.ShowHitboxes;
+            _preview = new FighterPreview(transform);
 
             Canvas canvas = UIFactory.CreateCanvas(transform, "UI", 10);
             UIFactory.EnsureEventSystem(transform);
             _hud = new MatchHud(canvas.transform);
             _menu = new MainMenuScreen(canvas.transform);
             _select = new CharacterSelectScreen(canvas.transform);
+            _select.PreviewImage.texture = _preview.Texture;
             _online = new OnlineScreen(canvas.transform, GameSettings.LastIp);
             _overlay = new OverlayScreens(canvas.transform);
             _overlay.SetHitboxLabel(_presenter.ShowHitboxes);
@@ -118,6 +129,14 @@ namespace HEXBOUND.App
             _menu.Training += () => OpenOfflineSelect(SelectMode.Training);
             _menu.VersusBot += () => OpenOfflineSelect(SelectMode.VersusBot);
             _menu.Beast += () => OpenOfflineSelect(SelectMode.Beast);
+            _menu.Arcade += () => OpenOfflineSelect(SelectMode.Arcade);
+            _select.PlayerChanged += id => _preview.Show(id);
+            _select.DifficultyClicked += () =>
+            {
+                Click();
+                GameSettings.BotDifficulty = (GameSettings.BotDifficulty + 1) % 3;
+                _select.SetDifficulty(DifficultyName(GameSettings.BotDifficulty));
+            };
             _menu.Online += OpenOnline;
             _menu.Controls += () =>
             {
@@ -200,6 +219,15 @@ namespace HEXBOUND.App
                 {
                     _net.ReturnToSelect();
                 }
+                else if (_arcade)
+                {
+                    if (_arcadeStage < 0) StartArcade(_arcadePlayer);
+                    else
+                    {
+                        if (_arcadeAdvance) _arcadeStage++;
+                        StartArcadeStage();
+                    }
+                }
                 else
                 {
                     StartOffline(_offlineSetup.Character0, _offlineSetup.Character1);
@@ -221,8 +249,14 @@ namespace HEXBOUND.App
 
         // ---------------------------------------------------------------- Screens
 
+        private static string DifficultyName(int difficulty)
+        {
+            return difficulty == 0 ? "Easy" : difficulty == 2 ? "Hard" : "Normal";
+        }
+
         private void HideAll()
         {
+            if (_preview != null) _preview.Hide();
             _menu.Show(false);
             _select.Show(false);
             _online.Show(false);
@@ -247,6 +281,7 @@ namespace HEXBOUND.App
             _screen = ScreenId.Select;
             _select.Open(mode);
             _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
+            _select.SetDifficulty(DifficultyName(GameSettings.BotDifficulty));
             if (mode == SelectMode.Beast)
             {
                 LoadBeast();
@@ -309,7 +344,7 @@ namespace HEXBOUND.App
         /// <summary>Saves what the beast learned. A finished match also counts toward its level.</summary>
         private void RecordBeast(GameState s, bool finished)
         {
-            if (_beast == null || _beastMemory == null || s == null || s.Setup.Mode != MatchMode.Beast || _beastRecorded) return;
+            if (_arcade || _beast == null || _beastMemory == null || s == null || s.Setup.Mode != MatchMode.Beast || _beastRecorded) return;
             if (finished)
             {
                 _beastMemory.RecordMatch(s.MatchWinner == _localIndex);
@@ -335,6 +370,12 @@ namespace HEXBOUND.App
         {
             Click();
             _offlineMode = _select.Mode;
+            if (_offlineMode == SelectMode.Arcade)
+            {
+                StartArcade(player);
+                return;
+            }
+            _arcade = false;
             bool training = _offlineMode == SelectMode.Training;
             bool beast = _offlineMode == SelectMode.Beast;
             if (beast)
@@ -354,17 +395,83 @@ namespace HEXBOUND.App
             };
             _beast = beast ? new BeastBrain(_beastMemory, _offlineSetup.Seed * 17u + 3u) : null;
             _beastRecorded = false;
+            if (_offlineMode == SelectMode.VersusBot && GameSettings.BotDifficulty > 0)
+            {
+                // Normal and Hard use the learning brain (it learns only during this match; nothing is saved).
+                var memory = new BeastMemory { Level = GameSettings.BotDifficulty == 2 ? 9 : 3 };
+                _beast = new BeastBrain(memory, _offlineSetup.Seed * 23u + 5u);
+            }
             _offline = new GameState();
             _offlineEvents.Clear();
             GameSimulation.Initialize(_offline, _offlineSetup, _offlineEvents);
             _bot = new TrainingBot(_offlineSetup.Seed * 31u + 7u)
             {
                 Mode = training ? _trainingBotMode : BotMode.Fight,
-                ReactionTicks = 9,
+                ReactionTicks = _offlineMode == SelectMode.VersusBot ? 11 : 9,
             };
             _localIndex = 0;
             _accumulator = 0;
             BeginMatchView(_offline);
+        }
+
+        // ---------------------------------------------------------------- Arcade
+
+        /// <summary>Starts an arcade run: every other fighter in a shuffled order, then the beast.</summary>
+        private void StartArcade(int player)
+        {
+            _arcade = true;
+            _arcadePlayer = player;
+            _arcadeStage = 0;
+            _arcadeMemory = new BeastMemory();
+            var order = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < GameContent.PlayableCount; i++)
+            {
+                if (i != player) order.Add(i);
+            }
+            uint rng = (uint)Environment.TickCount | 1u;
+            for (int i = order.Count - 1; i > 0; i--)
+            {
+                int j = DeterministicRandom.Range(ref rng, 0, i + 1);
+                int t = order[i];
+                order[i] = order[j];
+                order[j] = t;
+            }
+            order.Add(GameContent.BeastId);
+            _arcadeOrder = order.ToArray();
+            StartArcadeStage();
+        }
+
+        /// <summary>One arcade fight. The opponent's brain keeps learning across the whole run and gets sharper each stage.</summary>
+        private void StartArcadeStage()
+        {
+            int opponent = _arcadeOrder[_arcadeStage];
+            bool final = _arcadeStage == _arcadeOrder.Length - 1;
+            _arcadeMemory.Level = Mathf.Min(BeastMemory.MaxLevel, 1 + _arcadeStage * 2);
+            _offlineSetup = new MatchSetup
+            {
+                Character0 = _arcadePlayer,
+                Character1 = opponent,
+                Seed = (uint)Environment.TickCount | 1u,
+                Mode = final ? MatchMode.Beast : MatchMode.Versus,
+                BeastLevel = final ? _arcadeMemory.Level : 0,
+            };
+            _offline = new GameState();
+            _offlineEvents.Clear();
+            GameSimulation.Initialize(_offline, _offlineSetup, _offlineEvents);
+            _beast = new BeastBrain(_arcadeMemory, _offlineSetup.Seed * 29u + 7u);
+            _bot = new TrainingBot(_offlineSetup.Seed * 31u + 7u) { Mode = BotMode.Fight };
+            _beastRecorded = false;
+            _localIndex = 0;
+            _accumulator = 0;
+            BeginMatchView(_offline);
+        }
+
+        private string ArcadeLabel()
+        {
+            if (!_arcade || _arcadeOrder == null) return string.Empty;
+            CharacterDef opp = GameContent.GetCharacter(_arcadeOrder[_arcadeStage]);
+            bool final = _arcadeStage == _arcadeOrder.Length - 1;
+            return "ARCADE  Stage " + (_arcadeStage + 1) + " / " + _arcadeOrder.Length + "  -  " + (final ? "FINAL: " : "vs ") + opp.Name;
         }
 
         private void RestartTraining()
@@ -377,6 +484,7 @@ namespace HEXBOUND.App
         private void EndOfflineToMenu()
         {
             RecordBeast(_offline, false);
+            _arcade = false;
             _beast = null;
             _offline = null;
             ShowMenu();
@@ -566,6 +674,7 @@ namespace HEXBOUND.App
             if (IsOnline) UpdateOnline(dt);
             else if (inMatch) UpdateOffline(dt);
 
+            if (_select.Root.activeSelf) _preview.Update((float)dt);
             _arena.Update((float)dt);
             _music.SetMood(_screen == ScreenId.Match ? MusicMood.Match : (_screen == ScreenId.Menu ? MusicMood.Menu : MusicMood.Lobby));
             _music.Update((float)dt);
@@ -670,6 +779,30 @@ namespace HEXBOUND.App
             CharacterDef c0 = GameContent.GetCharacter(s.Fighters[0].CharacterId);
             CharacterDef c1 = GameContent.GetCharacter(s.Fighters[1].CharacterId);
             string detail = c0.Name + "  " + s.Wins0 + " - " + s.Wins1 + "  " + c1.Name;
+            if (!IsOnline && _arcade)
+            {
+                bool won = s.MatchWinner == _localIndex;
+                bool final = _arcadeStage == _arcadeOrder.Length - 1;
+                _arcadeAdvance = won;
+                if (won && final)
+                {
+                    title = "ARCADE CLEAR";
+                    detail += "\nYou beat every fighter and the Beast!";
+                    _arcadeStage = -1;
+                    _overlay.ShowResults(title, color, detail, "PLAY AGAIN");
+                    return;
+                }
+                if (won)
+                {
+                    title = "STAGE " + (_arcadeStage + 1) + " CLEAR";
+                    detail += "\nNext: " + GameContent.GetCharacter(_arcadeOrder[_arcadeStage + 1]).Name + (_arcadeStage + 1 == _arcadeOrder.Length - 1 ? " (final)" : string.Empty);
+                    _overlay.ShowResults(title, color, detail, "NEXT FIGHT");
+                    return;
+                }
+                detail += "\nStage " + (_arcadeStage + 1) + " of " + _arcadeOrder.Length + ". Your opponents remember how you fight.";
+                _overlay.ShowResults(title, color, detail, "RETRY STAGE");
+                return;
+            }
             if (!IsOnline && s.Setup.Mode == MatchMode.Beast)
             {
                 int before = _beastMemory != null ? _beastMemory.Level : 0;
@@ -695,6 +828,7 @@ namespace HEXBOUND.App
 
         private string TrainingInfo()
         {
+            if (!IsOnline && _offline != null && _arcade) return ArcadeLabel();
             if (!IsOnline && _offline != null && _offline.Setup.Mode == MatchMode.Beast && _beastMemory != null)
             {
                 return "THE BEAST  Level " + _beastMemory.Level + "\nLearning from your moves...";

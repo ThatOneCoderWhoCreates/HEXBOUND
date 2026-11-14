@@ -98,7 +98,7 @@ namespace HEXBOUND.Simulation
                 moveAngle = FixMath.NormalizeAngle(angleToOpp + _strafeSign * FixMath.QuarterTurn);
                 wantsMove = Roll(0, 100) < 30;
             }
-            else if (c.Weapon == "Wand" && dist < Mid)
+            else if ((c.Weapon == "Wand" || c.Weapon == "Launcher") && dist < Mid)
             {
                 moveAngle = FixMath.NormalizeAngle(angleToOpp + _strafeSign * FixMath.QuarterTurn);
             }
@@ -160,7 +160,7 @@ namespace HEXBOUND.Simulation
                 int r = Roll(0, 100);
                 if (r < 25 && CanUse(ref me, c.Skill1, me.CooldownSkill1)) _pulse = InputButtons.Skill1;
                 else if (r < 40 && CanUse(ref me, c.Skill2, me.CooldownSkill2)) _pulse = InputButtons.Skill2;
-                else if (r < 50 && c.Weapon == "Wand") _pulse = InputButtons.Heavy;
+                else if (r < 50 && (c.Weapon == "Wand" || c.Weapon == "Launcher")) _pulse = InputButtons.Heavy;
                 return;
             }
 

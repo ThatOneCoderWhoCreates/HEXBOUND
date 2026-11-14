@@ -4,6 +4,31 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-14: Bram and Vex, 1000 magic, flight, bot difficulty, arcade, preview, visuals
+
+### Request (Tanmay)
+More characters (Staff user, Launcher), jump heights per fighter, 1000 magic for everyone, the Wizard flies as high as she wants while magic lasts, bot difficulty, arcade tower, fighter preview, visual polish.
+
+### Changes
+- Magic: every playable fighter has 1000 (the beast still has none).
+- Jump heights (meters): Lyra 2.5, Kael 3.4, Bram 3.4, Rook 4.0, Vex 4.9 (plus rocket jumps).
+- Lyra's Levitate: no timer and no height cap (40 m safety limit). Drains 40 magic per second; ends when magic runs out or when R is pressed again.
+- Bram (staff, StaffFighter.cs) is now in the roster. Placeholder body until a model is added as Resources/Fighters/Staff.glb.
+- Vex (LauncherFighter.cs): missile launcher (explosive missiles with splash) and pistol, swapped with the mouse wheel (gamepad D-pad right). Q Cluster Missile, E Rocket Jump (shoots the floor, flies up, blasts nearby enemies; own blasts never hurt Vex), R Missile Rain (8 missiles fall around the opponent). Right click in the air also shoots down for a small boost. Placeholder body until Resources/Fighters/Launcher.glb is added.
+- Engine: projectile explosions (ExplodeRadius etc.), downward and from-the-sky projectiles, weapon modes (FighterState.WeaponMode, CharacterDef.Alt* moves), InputButtons.SwitchWeapon.
+- Versus Bot difficulty (Easy / Normal / Hard): Easy is the old bot, Normal and Hard use the learning brain at level 3 and 9 (learns during the match only).
+- Arcade (main menu): beat the other four fighters in a random order, each sharper than the last, then the Beast. The opponents' brain keeps learning through the whole run. Lose and you can retry the stage.
+- Character select redesigned for 5 fighters: card row, a turning 3D preview of the selected fighter, stats (health, magic, speed, jump) and abilities.
+- Visuals: glowing swipe trails on weapons and fists during attacks, missile models with flame and smoke trails, bullet streaks, explosions (flash, fire, smoke, shockwave ring, screen shake), extra sparks and a shockwave ring on heavy hits.
+
+### Verified
+All assemblies compile. EditMode tests 20 of 20 pass. Bot soak deterministic for all 25 matchups. Rollback tests: no desyncs. Roster tests: jump order, rocket jump height and no self-damage, missile splash, weapon switch, flight drain and cancel.
+
+### Not verified yet
+Looks in Unity: placeholder bodies for Bram and Vex, the preview screen layout, trails and explosions.
+
+---
+
 ## 2026-11-13: Crouch, X recharge, 750 magic, Fight the Beast
 
 ### Request (Tanmay)

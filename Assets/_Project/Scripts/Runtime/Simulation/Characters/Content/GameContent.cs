@@ -21,12 +21,13 @@ namespace HEXBOUND.Simulation
         {
             var b = new ContentBuilder();
             var common = CommonMoves.Build(b);
-            // The Staff fighter (StaffFighter.cs) is kept for later but is not in the roster until it has a model.
             Characters = new[]
             {
                 SwordFighter.Build(b, common),
                 BoxerFighter.Build(b, common),
                 WandFighter.Build(b, common),
+                StaffFighter.Build(b, common),
+                LauncherFighter.Build(b, common),
                 BeastFighter.Build(b, common),
             };
             for (int i = 0; i < Characters.Length; i++)
@@ -132,6 +133,14 @@ namespace HEXBOUND.Simulation
                 h.Add(p.KnockbackH);
                 h.Add(p.KnockbackV);
                 h.Add((int)p.Flags);
+                h.Add(p.ExplodeRadius);
+                h.Add(p.ExplodeDamage);
+                h.Add(p.ExplodeKnockbackH);
+                h.Add(p.ExplodeKnockbackV);
+                h.Add(p.Downward ? 1 : 0);
+                h.Add(p.FromSky ? 1 : 0);
+                h.Add(p.SpawnUp);
+                h.Add(p.SpawnForward);
             }
             return h.Value;
         }

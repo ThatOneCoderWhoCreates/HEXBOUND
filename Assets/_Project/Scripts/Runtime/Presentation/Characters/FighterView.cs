@@ -86,6 +86,24 @@ namespace HEXBOUND.Presentation
             _punch = Mathf.MoveTowards(_punch, 0f, deltaTime * 4f);
             Visual.Body.localScale = new Vector3(1f + _punch * 0.08f, 1f - _punch * 0.06f, 1f + _punch * 0.08f);
 
+            if (Visual.PrimaryProp != null) Visual.PrimaryProp.SetActive(f.WeaponMode == 0);
+            if (Visual.SecondaryProp != null) Visual.SecondaryProp.SetActive(f.WeaponMode == 1);
+
+            // Swipe trails while a melee attack is in its active frames.
+            bool swinging = false;
+            if (f.Action == FighterAction.Attack)
+            {
+                MoveDef m = GameContent.GetMove(f.MoveId);
+                if (m != null && m.Hitboxes.Length > 0 && m.Spawns.Length == 0 && m.Pose != MovePose.Dodge && m.Pose != MovePose.Grab)
+                {
+                    int start, end;
+                    FighterAnimator.Phases(m, out start, out end);
+                    swinging = f.MoveTick >= start - 3 && f.MoveTick <= end + 2;
+                }
+            }
+            if (Visual.TrailR != null) Visual.TrailR.emitting = swinging;
+            if (Visual.TrailL != null) Visual.TrailL.emitting = swinging && (Character.UltimateBuff != BuffId.TwinBlades || f.Buff == BuffId.TwinBlades);
+
             bool buffed = f.Buff != BuffId.None;
             if (Visual.OffhandBlade != null) Visual.OffhandBlade.SetActive(f.Buff == BuffId.TwinBlades);
             if (Visual.BuffAura != null)

@@ -9,6 +9,8 @@ namespace HEXBOUND.Simulation
         Boxer,
         /// <summary>Hunched beast that walks on its knuckles.</summary>
         Beast,
+        /// <summary>Carries a launcher on the shoulder (or a pistol).</summary>
+        Gunner,
     }
 
     /// <summary>Text shown in menus and the HUD for one ability.</summary>
@@ -58,6 +60,14 @@ namespace HEXBOUND.Simulation
         public MoveDef Heal;
         /// <summary>C + left mouse: low attack from the crouch.</summary>
         public MoveDef CrouchAttack;
+
+        /// <summary>Name of the secondary weapon (mouse wheel swaps). Null means the fighter has one weapon.</summary>
+        public string SecondaryWeapon;
+        /// <summary>Moves used with the secondary weapon (null keeps the primary move).</summary>
+        public MoveDef[] AltLightChain;
+        public MoveDef AltHeavy;
+        public MoveDef AltAirLight;
+        public MoveDef AltAirHeavy;
 
         /// <summary>Shown in the character select screen. The beast is only fought in its own mode.</summary>
         public bool Selectable = true;

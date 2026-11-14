@@ -113,6 +113,36 @@ namespace HEXBOUND.Simulation
                 };
                 p.Active = false;
                 if (ev != null) ev.Add(s.Tick, SimEventType.ProjectileHit, p.Owner, p.SerialId, p.Position);
+                if (def.ExplodeRadius > Fix.Zero && ev != null) ev.Add(s.Tick, SimEventType.Explosion, p.Owner, p.DefId, p.Position);
+            }
+
+            // Missile blasts: hurt the opponent inside the radius. The owner is never hurt by its own blast.
+            for (int i = 0; i < s.Projectiles.Length && count < MaxPending; i++)
+            {
+                ref ProjectileState p = ref s.Projectiles[i];
+                if (!p.Exploding) continue;
+                p.Exploding = false;
+                int d = 1 - p.Owner;
+                ref FighterState defender = ref s.Fighters[d];
+                ProjectileDef def = GameContent.Projectiles[p.DefId];
+                if (!CanBeHit(ref defender, HitFlags.Radial)) continue;
+                if (!Overlaps(p.Position, def.ExplodeRadius, ref defender)) continue;
+                pending[count++] = new PendingHit
+                {
+                    Attacker = p.Owner,
+                    Defender = d,
+                    Damage = ScaleDamage(s, ref s.Fighters[p.Owner], def.ExplodeDamage),
+                    Hitstun = def.ExplodeHitstun,
+                    Blockstun = 14,
+                    KnockbackH = def.ExplodeKnockbackH,
+                    KnockbackV = def.ExplodeKnockbackV,
+                    Flags = HitFlags.Radial | HitFlags.Launch,
+                    Source = p.Position,
+                    ArcSource = p.Position,
+                    Direction = 0,
+                    FromProjectile = true,
+                    ProjectileSlot = i,
+                };
             }
 
             for (int i = 0; i < count; i++)

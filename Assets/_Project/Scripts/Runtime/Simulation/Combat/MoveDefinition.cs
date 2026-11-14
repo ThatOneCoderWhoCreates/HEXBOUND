@@ -104,6 +104,17 @@ namespace HEXBOUND.Simulation
         public Fix Gravity;
         /// <summary>Visual style id for presentation.</summary>
         public int VisualId;
+
+        /// <summary>Above zero: explodes when it hits the floor, a pillar, the opponent or runs out of time, hurting the opponent (never the owner) inside this radius.</summary>
+        public Fix ExplodeRadius;
+        public int ExplodeDamage;
+        public Fix ExplodeKnockbackH;
+        public Fix ExplodeKnockbackV;
+        public int ExplodeHitstun = 24;
+        /// <summary>Fired straight down from the owner's feet (rocket jump).</summary>
+        public bool Downward;
+        /// <summary>Falls from the sky above the opponent: SpawnUp is the height, SpawnForward the ring radius, the spawn angle offset the ring angle.</summary>
+        public bool FromSky;
     }
 
     public sealed class MoveDef
@@ -182,5 +193,9 @@ namespace HEXBOUND.Simulation
         Sweep,
         /// <summary>Beast roar with both arms out (awakening).</summary>
         Roar,
+        /// <summary>Launcher held on the shoulder, aimed with both hands.</summary>
+        Aim,
+        /// <summary>Pistol shot with one arm extended.</summary>
+        Shoot,
     }
 }

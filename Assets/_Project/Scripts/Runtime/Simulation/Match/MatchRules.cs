@@ -6,7 +6,7 @@ namespace HEXBOUND.Simulation
         public const int TickRate = 60;
 
         /// <summary>Default maximum magic (a fighter can override it with CharacterDef.MaxMagic).</summary>
-        public const int MaxMagic = 750;
+        public const int MaxMagic = 1000;
 
         public const int RoundTimeSeconds = 99;
         public const int WinsNeeded = 2;
@@ -59,7 +59,9 @@ namespace HEXBOUND.Simulation
 
         /// <summary>Levitate flight settings.</summary>
         public static readonly Fix FlightMinHeight = Fix.Milli(1200);
-        public static readonly Fix FlightMaxHeight = Fix.FromInt(6);
+        public static readonly Fix FlightMaxHeight = Fix.FromInt(40);
+        /// <summary>Magic drained while flying with Levitate: 2 points every 3 ticks (40 per second).</summary>
+        public const int FlightDrainEvery = 3;
         public static readonly Fix FlightVerticalSpeed = Fix.Milli(110);
         public static readonly Fix FlightSpeed = Fix.Milli(115);
 

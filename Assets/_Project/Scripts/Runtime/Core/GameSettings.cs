@@ -12,6 +12,14 @@ namespace HEXBOUND.Core
         private const string LastIpKey = "hexbound.lastIp";
         private const string InputDelayKey = "hexbound.inputDelay";
         private const string BeastMemoryKey = "hexbound.beastMemory";
+        private const string BotDifficultyKey = "hexbound.botDifficulty";
+
+        /// <summary>Versus Bot difficulty: 0 easy, 1 normal, 2 hard.</summary>
+        public static int BotDifficulty
+        {
+            get { return Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, 1), 0, 2); }
+            set { PlayerPrefs.SetInt(BotDifficultyKey, Mathf.Clamp(value, 0, 2)); }
+        }
 
         public static float MouseSensitivity
         {

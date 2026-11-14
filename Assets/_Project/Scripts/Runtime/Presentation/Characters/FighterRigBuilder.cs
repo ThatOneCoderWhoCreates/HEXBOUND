@@ -19,6 +19,12 @@ namespace HEXBOUND.Presentation
         /// <summary>Glow ring shown under the fighter while an ultimate buff is active.</summary>
         public GameObject BuffAura;
         public Light AuraLight;
+        /// <summary>Launcher: the missile launcher (primary) and pistol (secondary) props.</summary>
+        public GameObject PrimaryProp;
+        public GameObject SecondaryProp;
+        /// <summary>Glowing swipe trails on the striking hand / weapon tip, shown during attacks.</summary>
+        public TrailRenderer TrailR;
+        public TrailRenderer TrailL;
         public Renderer[] Renderers;
         public Material AccentMaterial;
     }
@@ -243,6 +249,10 @@ namespace HEXBOUND.Presentation
                 tip.transform.localScale = Vector3.one * 0.08f * h;
                 tip.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
+            else if (weapon == "Launcher")
+            {
+                // The launcher and pistol props are added for every Launcher body in BuildExtras.
+            }
             else if (weapon == "Staff")
             {
                 GameObject shaft = MaterialFactory.Primitive(PrimitiveType.Cylinder, hand, MaterialFactory.Lit(new Color(0.3f, 0.2f, 0.12f), 0.4f), "Staff");
@@ -264,6 +274,26 @@ namespace HEXBOUND.Presentation
             }
         }
 
+        private static TrailRenderer MakeTrail(Transform hand, Transform forearm, float worldReach, Color accentHdr, float width)
+        {
+            var go = new GameObject("Swipe Trail");
+            go.transform.SetParent(hand, false);
+            Vector3 along = hand.InverseTransformDirection((hand.position - forearm.position).normalized);
+            float lossy = Mathf.Max(hand.lossyScale.x, 1e-4f);
+            go.transform.localPosition = along * (worldReach / lossy);
+            TrailRenderer trail = go.AddComponent<TrailRenderer>();
+            trail.time = 0.14f;
+            trail.minVertexDistance = 0.04f;
+            trail.startWidth = width;
+            trail.endWidth = 0f;
+            Color c = accentHdr * 0.55f;
+            c.a = 0.85f;
+            trail.sharedMaterial = MaterialFactory.Additive(c);
+            trail.shadowCastingMode = ShadowCastingMode.Off;
+            trail.emitting = false;
+            return trail;
+        }
+
         private static void BuildExtras(FighterVisual visual, CharacterDef character, Color accentHdr, int playerIndex)
         {
             PoseRig rig = visual.Rig;
@@ -283,6 +313,52 @@ namespace HEXBOUND.Presentation
                 mesh.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
                 blade.SetActive(false);
                 visual.OffhandBlade = blade;
+            }
+
+            // Launcher and pistol, held in the right hand along the forearm.
+            if (character.SecondaryWeapon != null && rig.HandR != null && rig.ForeArmR != null)
+            {
+                Vector3 along = rig.HandR.InverseTransformDirection((rig.HandR.position - rig.ForeArmR.position).normalized);
+                float lossy = Mathf.Max(rig.HandR.lossyScale.x, 1e-4f);
+                Quaternion toArm = Quaternion.FromToRotation(Vector3.up, along);
+
+                var launcher = new GameObject("Missile Launcher");
+                launcher.transform.SetParent(rig.HandR, false);
+                Material metal = MaterialFactory.Lit(new Color(0.2f, 0.24f, 0.26f), 0.55f, 0.8f);
+                GameObject tube = MaterialFactory.Primitive(PrimitiveType.Cylinder, launcher.transform, metal, "Tube");
+                tube.transform.localRotation = toArm;
+                tube.transform.localPosition = along * (0.05f / lossy);
+                tube.transform.localScale = new Vector3(0.24f, 0.62f, 0.24f) / lossy;
+                GameObject muzzle = MaterialFactory.Primitive(PrimitiveType.Cylinder, launcher.transform, visual.AccentMaterial, "Muzzle Ring");
+                muzzle.transform.localRotation = toArm;
+                muzzle.transform.localPosition = along * (0.66f / lossy);
+                muzzle.transform.localScale = new Vector3(0.27f, 0.03f, 0.27f) / lossy;
+                muzzle.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                visual.PrimaryProp = launcher;
+
+                var pistol = new GameObject("Pistol");
+                pistol.transform.SetParent(rig.HandR, false);
+                GameObject barrel = MaterialFactory.Primitive(PrimitiveType.Cube, pistol.transform, metal, "Barrel");
+                barrel.transform.localRotation = toArm;
+                barrel.transform.localPosition = along * (0.14f / lossy);
+                barrel.transform.localScale = new Vector3(0.06f, 0.26f, 0.09f) / lossy;
+                GameObject sight = MaterialFactory.Primitive(PrimitiveType.Cube, pistol.transform, visual.AccentMaterial, "Sight");
+                sight.transform.localRotation = toArm;
+                sight.transform.localPosition = along * (0.24f / lossy);
+                sight.transform.localScale = new Vector3(0.065f, 0.04f, 0.095f) / lossy;
+                pistol.SetActive(false);
+                visual.SecondaryProp = pistol;
+            }
+
+            // Swipe trails: from the weapon tip (sword, staff) or the fists.
+            if (rig.HandR != null && rig.ForeArmR != null && character.SecondaryWeapon == null)
+            {
+                float reach = character.Weapon == "Sword" ? 1.0f : character.Weapon == "Staff" ? 1.1f : character.Weapon == "Wand" ? 0.45f : 0.12f;
+                visual.TrailR = MakeTrail(rig.HandR, rig.ForeArmR, reach, accentHdr, character.Weapon == "Fists" || character.Stance == FighterStance.Beast ? 0.18f : 0.12f);
+                if (rig.HandL != null && rig.ForeArmL != null && (character.Weapon == "Fists" || character.Stance == FighterStance.Beast || character.UltimateBuff == BuffId.TwinBlades))
+                {
+                    visual.TrailL = MakeTrail(rig.HandL, rig.ForeArmL, character.UltimateBuff == BuffId.TwinBlades ? 1.0f : 0.12f, accentHdr, 0.16f);
+                }
             }
 
             var aura = new GameObject("Aura");

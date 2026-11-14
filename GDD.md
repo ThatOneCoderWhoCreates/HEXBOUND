@@ -152,3 +152,13 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 - C + right mouse (hold): low guard. Blocks low and normal attacks, is never guard-broken (heavies deal double chip), cannot parry. Loses to overheads (Overhead/Slam moves), air attacks and grabs.
 - Fight the Beast (main menu): best of 3 against Chimera, a large beast (1300 health, no magic, slower, heavy punches). At 30% health, once per round, it awakens: roar shockwave, heals 10%, purple aura, then 30% faster movement, faster attacks and 25% more damage for the rest of the round.
 - The beast learns the player's habits (which actions in which situations, what follows what, how eagerly each skill is used when available, how the player defends). Expected moves are noticed almost at once and parried or blocked; attacks are chosen to beat the player's usual defense. Memory and level are saved on the PC; the level rises each time the player wins (0 to 10). Higher levels react faster, parry more and deal more damage (75% at level 0 to 115% at level 10).
+
+## Update 2026-11-14: roster, flight, bots, arcade
+
+- Roster: Kael (sword), Rook (boxer), Lyra (wizard), Bram (staff), Vex (launcher). The Beast is fought only in its own mode and in Arcade.
+- Magic: 1000 for every playable fighter.
+- Jump heights (meters): Lyra 2.5, Kael 3.4, Bram 3.4, Rook 4.0, Vex 4.9.
+- Lyra's Levitate: no timer, no height cap (40 m safety limit); drains 40 magic per second; ends when magic runs out or R is pressed again.
+- Vex: missile launcher and pistol, swapped with the mouse wheel (gamepad D-pad right). Missiles explode where they land (splash). Q Cluster Missile, E Rocket Jump (shoots the floor, flies up, blast hurts nearby enemies, never Vex), R Missile Rain. Right click in the air shoots down for a small lift.
+- Versus Bot difficulty: Easy (old bot), Normal and Hard (learning brain at level 3 and 9, learns during the match only).
+- Arcade: beat the other four fighters in a random order, each sharper than the last, then the Beast. Losing lets you retry the stage.

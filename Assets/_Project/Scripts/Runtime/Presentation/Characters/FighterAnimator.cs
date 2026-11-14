@@ -382,6 +382,25 @@ namespace HEXBOUND.Presentation
                 p.SpinePitch += 6f;
             }
 
+            if (c.Stance == FighterStance.Gunner && (f.Action == FighterAction.Idle || f.Action == FighterAction.Move || (f.Action == FighterAction.Air && !flying)))
+            {
+                if (f.WeaponMode == 0)
+                {
+                    // Launcher held ready at the hip, pointing forward, the off hand on the tube.
+                    float bob = Mathf.Sin(_time * (f.Action == FighterAction.Move ? 9f : 3f)) * 0.04f;
+                    p.UpperArmR = V(0.35f, -0.75f + bob, 0.35f);
+                    p.ForeArmR = V(0.05f, 0.05f, 1f);
+                    p.UpperArmL = V(-0.15f, -0.6f, 0.75f);
+                    p.ForeArmL = V(0.45f, 0.05f, 0.9f);
+                }
+                else
+                {
+                    // Pistol held low and ready.
+                    p.UpperArmR = V(0.25f, -0.9f, 0.3f);
+                    p.ForeArmR = V(0.05f, -0.3f, 1f);
+                }
+            }
+
             if (_beast) BeastPose(ref p, ref f, c, dt, speed);
 
             if (f.Buff == BuffId.TwinBlades && f.Action == FighterAction.Attack)
@@ -884,6 +903,43 @@ namespace HEXBOUND.Presentation
                     p.ForeArmL = V(-0.2f, -1f, 0f);
                     p.SpineYaw = Mathf.Lerp(25f, -25f, ease);
                     p.SpinePitch = 22f;
+                    break;
+                }
+                case MovePose.Aim:
+                {
+                    // Launcher on the shoulder. Aims down for the rocket blast, up for missile rain.
+                    bool down = false;
+                    bool up = false;
+                    for (int i = 0; i < m.Spawns.Length; i++)
+                    {
+                        ProjectileDef pd = GameContent.Projectiles[m.Spawns[i].ProjectileId];
+                        if (pd.Downward) down = true;
+                        if (pd.FromSky) up = true;
+                    }
+                    Vector3 aim = down ? V(0.1f, -1f, 0.25f) : up ? V(0.1f, 1f, 0.35f) : V(0.05f, 0.05f, 1f);
+                    float recoil = t >= start && t <= start + 5 ? 1f - (t - start) / 5f : 0f;
+                    p.UpperArmR = Vector3.Slerp(V(0.45f, -0.35f, 0.75f), down ? V(0.3f, -0.7f, 0.5f) : V(0.4f, -0.2f, 0.85f), Mathf.Min(1f, wind * 1.5f));
+                    p.ForeArmR = Vector3.Slerp(V(0.05f, 0.05f, 1f), aim, Mathf.Min(1f, wind * 1.5f));
+                    p.UpperArmL = V(-0.15f, -0.45f, 0.85f);
+                    p.ForeArmL = Vector3.Slerp(V(0.45f, 0.05f, 0.9f), aim, 0.7f);
+                    p.SpinePitch = (up ? -14f : down ? 18f : 4f) - recoil * 10f;
+                    p.SpineYaw = 12f;
+                    p.BodyDrop = 0.06f + recoil * 0.05f;
+                    p.ThighL = V(-0.25f, -1f, 0.35f);
+                    p.ThighR = V(0.25f, -1f, -0.3f);
+                    break;
+                }
+                case MovePose.Shoot:
+                {
+                    float recoil = t >= start && t <= start + 3 ? 1f - (t - start) / 3f : 0f;
+                    Vector3 aim = V(0.05f, 0.08f + recoil * 0.35f, 1f);
+                    float k = Mathf.Min(1f, wind * 2f);
+                    p.UpperArmR = Vector3.Slerp(V(0.25f, -0.9f, 0.3f), aim, k);
+                    p.ForeArmR = Vector3.Slerp(V(0.05f, -0.3f, 1f), aim, k);
+                    p.UpperArmL = V(-0.3f, -1f, 0.1f);
+                    p.ForeArmL = V(-0.1f, -0.7f, 0.5f);
+                    p.SpineYaw = 14f;
+                    p.SpinePitch = 2f - recoil * 4f;
                     break;
                 }
                 case MovePose.Roar:

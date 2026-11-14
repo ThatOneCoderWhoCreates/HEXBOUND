@@ -106,6 +106,13 @@ namespace HEXBOUND.Simulation
                 if (toOpp.LengthSquared() > GameConfig.LockOnRange * GameConfig.LockOnRange) f.LockOn = false;
             }
 
+            if ((pressed & InputButtons.SwitchWeapon) != 0 && c.SecondaryWeapon != null && f.Action != FighterAction.Attack)
+            {
+                f.WeaponMode = (byte)(f.WeaponMode == 0 ? 1 : 0);
+                f.ComboStep = 0;
+                if (ev != null) ev.Add(s.Tick, SimEventType.WeaponSwitch, index, f.WeaponMode, f.Position);
+            }
+
             InputButtons action = PickAction(pressed);
             if (action != InputButtons.None)
             {
@@ -218,6 +225,16 @@ namespace HEXBOUND.Simulation
             if (f.CooldownHeal > 0) f.CooldownHeal--;
             if (f.InvulnTicks > 0) f.InvulnTicks--;
             if (f.RehitTimer > 0) f.RehitTimer--;
+            if (f.Buff == BuffId.Levitate && !s.Setup.InfiniteMagic && s.Tick % GameConfig.FlightDrainEvery != 0)
+            {
+                // Flying burns magic; when it runs out, the flight ends.
+                f.Magic--;
+                if (f.Magic <= 0)
+                {
+                    f.Magic = 0;
+                    f.BuffTicks = 1;
+                }
+            }
             if (f.Buff != BuffId.None)
             {
                 f.BuffTicks--;
@@ -418,12 +435,22 @@ namespace HEXBOUND.Simulation
             bool flying = f.Buff == BuffId.Levitate;
             bool air = !f.Grounded || flying;
             bool buffed = f.Buff != BuffId.None && f.Buff == c.UltimateBuff;
+            bool alt = f.WeaponMode == 1 && c.SecondaryWeapon != null;
             MoveDef move = null;
             int comboStep = 0;
 
             switch (button)
             {
                 case InputButtons.Ultimate:
+                    if (f.Buff == BuffId.Levitate && c.UltimateBuff == BuffId.Levitate)
+                    {
+                        // R while flying lands: the flight ends and the fighter falls.
+                        ConsumeBuffer(ref f);
+                        f.Buff = BuffId.None;
+                        f.BuffTicks = 0;
+                        if (ev != null) ev.Add(s.Tick, SimEventType.BuffEnd, index, (int)BuffId.Levitate, f.Position);
+                        return false;
+                    }
                     move = c.Ultimate;
                     break;
                 case InputButtons.Skill1:
@@ -443,8 +470,8 @@ namespace HEXBOUND.Simulation
                         ConsumeBuffer(ref f);
                         return false;
                     }
-                    if (air) move = buffed && c.BuffAirHeavy != null ? c.BuffAirHeavy : c.AirHeavy;
-                    else move = buffed && c.BuffHeavy != null ? c.BuffHeavy : c.Heavy;
+                    if (air) move = alt && c.AltAirHeavy != null ? c.AltAirHeavy : (buffed && c.BuffAirHeavy != null ? c.BuffAirHeavy : c.AirHeavy);
+                    else move = alt && c.AltHeavy != null ? c.AltHeavy : (buffed && c.BuffHeavy != null ? c.BuffHeavy : c.Heavy);
                     break;
                 case InputButtons.Light:
                     if (!air && input.Held(InputButtons.Crouch) && c.CrouchAttack != null)
@@ -453,11 +480,11 @@ namespace HEXBOUND.Simulation
                     }
                     else if (air)
                     {
-                        move = buffed && c.BuffAirLight != null ? c.BuffAirLight : c.AirLight;
+                        move = alt && c.AltAirLight != null ? c.AltAirLight : (buffed && c.BuffAirLight != null ? c.BuffAirLight : c.AirLight);
                     }
                     else
                     {
-                        MoveDef[] chain = buffed && c.BuffLightChain != null ? c.BuffLightChain : c.LightChain;
+                        MoveDef[] chain = alt && c.AltLightChain != null ? c.AltLightChain : (buffed && c.BuffLightChain != null ? c.BuffLightChain : c.LightChain);
                         if (fromCancel && f.Action == FighterAction.Attack && f.ComboStep < chain.Length && chain[f.ComboStep].Id == f.MoveId)
                         {
                             comboStep = f.ComboStep + 1;

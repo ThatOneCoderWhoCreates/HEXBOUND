@@ -20,7 +20,7 @@ namespace HEXBOUND.Simulation
                 Height = ContentBuilder.M(1700),
                 MoveSpeed = ContentBuilder.M(112),
                 AirSpeed = ContentBuilder.M(100),
-                JumpVelocity = ContentBuilder.M(330),
+                JumpVelocity = ContentBuilder.M(310),
                 KnockbackScale = ContentBuilder.M(1150),
                 ColorR = 175,
                 ColorG = 95,
@@ -166,7 +166,8 @@ namespace HEXBOUND.Simulation
             c.Ultimate.Motions = new[] { ContentBuilder.Vertical(0, 20, 0, 120) };
             c.Ultimate.ApplyBuff = BuffId.Levitate;
             c.Ultimate.BuffTick = 10;
-            c.Ultimate.BuffDuration = ContentBuilder.Seconds(8);
+            // Flight has no timer: it lasts until magic runs out (see FighterLogic) or R is pressed again.
+            c.Ultimate.BuffDuration = ContentBuilder.Seconds(600);
             c.Ultimate.MagicCost = 260;
             c.Ultimate.Slot = CooldownSlot.Ultimate;
             c.Ultimate.Cooldown = ContentBuilder.Seconds(25);
@@ -194,7 +195,7 @@ namespace HEXBOUND.Simulation
             {
                 new AbilityInfo { Key = "Q", Name = "Hex Bolts", Description = "Fire three aimed bolts. Works in the air. 100 magic." },
                 new AbilityInfo { Key = "E", Name = "Blink", Description = "Teleport a short distance in the direction you move. 120 magic." },
-                new AbilityInfo { Key = "R", Name = "Levitate", Description = "Fly for 8 seconds. Space rises, Ctrl descends, attacks shoot from the air. 260 magic." },
+                new AbilityInfo { Key = "R", Name = "Levitate", Description = "Fly as high as you like while magic lasts (40 per second). Space rises, Ctrl descends, R again lands. 260 magic." },
             };
             return c;
         }

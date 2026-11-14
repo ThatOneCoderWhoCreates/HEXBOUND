@@ -26,7 +26,20 @@ namespace HEXBOUND.Simulation
             FixVec3 origin = f.Position + forward * def.SpawnForward + FixVec3.Up * def.SpawnUp;
             FixVec3 dir = forward;
 
-            if (def.AimAtTarget && opponent.Action != FighterAction.KO && opponent.Action != FighterAction.RingOut)
+            if (def.Downward)
+            {
+                origin = f.Position + FixVec3.Up * def.SpawnUp;
+                dir = new FixVec3(Fix.Zero, -Fix.One, Fix.Zero);
+            }
+            else if (def.FromSky)
+            {
+                FixVec3 ring = FixVec3.FromAngle(FixMath.NormalizeAngle(spawn.AngleOffset)) * def.SpawnForward;
+                FixVec3 target = opponent.Position;
+                target.Y = Fix.Zero;
+                origin = target + ring + FixVec3.Up * def.SpawnUp;
+                dir = new FixVec3(Fix.Zero, -Fix.One, Fix.Zero);
+            }
+            else if (def.AimAtTarget && opponent.Action != FighterAction.KO && opponent.Action != FighterAction.RingOut)
             {
                 CharacterDef oc = GameContent.GetCharacter(opponent.CharacterId);
                 FixVec3 chest = opponent.Position + FixVec3.Up * (oc.Height * ChestRatio);
@@ -49,7 +62,16 @@ namespace HEXBOUND.Simulation
             p.Velocity = dir * def.Speed;
             p.TicksLeft = def.Lifetime;
             p.SerialId = s.NextProjectileSerial++;
+            p.Exploding = false;
             if (ev != null) ev.Add(s.Tick, SimEventType.ProjectileSpawn, owner, def.Id, origin);
+        }
+
+        /// <summary>Marks the projectile's blast for this tick (CombatResolver hits the opponent if inside the radius).</summary>
+        public static void Explode(GameState s, ref ProjectileState p, EventBuffer ev)
+        {
+            p.Active = false;
+            p.Exploding = true;
+            if (ev != null) ev.Add(s.Tick, SimEventType.Explosion, p.Owner, p.DefId, p.Position);
         }
 
         public static void Step(GameState s, EventBuffer ev)
@@ -66,11 +88,19 @@ namespace HEXBOUND.Simulation
                 if (p.TicksLeft <= 0 || hitFloor || p.Position.Y < GameConfig.RingOutHeight)
                 {
                     p.Active = false;
-                    if (ev != null) ev.Add(s.Tick, SimEventType.ProjectileExpire, p.Owner, p.SerialId, p.Position);
+                    if (def.ExplodeRadius > Fix.Zero)
+                    {
+                        if (hitFloor && p.Position.Y < Fix.Zero) p.Position.Y = Fix.Zero;
+                        Explode(s, ref p, ev);
+                    }
+                    else if (ev != null)
+                    {
+                        ev.Add(s.Tick, SimEventType.ProjectileExpire, p.Owner, p.SerialId, p.Position);
+                    }
                 }
             }
 
-            // Projectiles from different owners destroy each other.
+            // Projectiles from different owners destroy each other (missiles explode).
             for (int i = 0; i < s.Projectiles.Length; i++)
             {
                 ref ProjectileState a = ref s.Projectiles[i];
@@ -84,6 +114,8 @@ namespace HEXBOUND.Simulation
                     {
                         a.Active = false;
                         b.Active = false;
+                        if (GameContent.Projectiles[a.DefId].ExplodeRadius > Fix.Zero) Explode(s, ref a, ev);
+                        if (GameContent.Projectiles[b.DefId].ExplodeRadius > Fix.Zero) Explode(s, ref b, ev);
                         if (ev != null) ev.Add(s.Tick, SimEventType.ProjectileClash, a.Owner, a.SerialId, a.Position);
                         break;
                     }

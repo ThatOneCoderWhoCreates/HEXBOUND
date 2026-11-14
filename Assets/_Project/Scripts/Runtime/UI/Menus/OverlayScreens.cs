@@ -65,6 +65,7 @@ namespace HEXBOUND.UI
                 "C (hold)  Crouch: ducks high attacks\n" +
                 "C + Left click  Low sweep (beats a standing block)\n" +
                 "C + Right click (hold)  Low guard (loses to overheads, air attacks, grabs)\n" +
+                "Mouse wheel  Switch weapon (Vex: launcher / pistol)\n" +
                 "Tab / Middle mouse  Lock-on\n" +
                 "Esc  Pause";
             string pad =
@@ -80,12 +81,13 @@ namespace HEXBOUND.UI
                 "D-pad up  Recharge\n" +
                 "D-pad left  Heal\n" +
                 "Left stick click (hold)  Crouch\n" +
+                "D-pad right  Switch weapon\n" +
                 "Right stick click  Lock-on\n" +
                 "Start  Pause\n\n" +
                 "<b>TRAINING</b>\nF1 hitboxes  F2 bot mode  F4 reset";
-            Text k = UIFactory.Label(controls, keyboard, 28, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(-380, -30), new Vector2(760, 760));
+            Text k = UIFactory.Label(controls, keyboard, 23, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(-400, -40), new Vector2(900, 800));
             k.supportRichText = true;
-            Text g = UIFactory.Label(controls, pad, 28, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(430, -30), new Vector2(620, 760));
+            Text g = UIFactory.Label(controls, pad, 23, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(500, -40), new Vector2(620, 800));
             g.supportRichText = true;
             UIFactory.Button(controls, "CLOSE", new Vector2(0, -470), new Vector2(320, 70), () => CloseControls?.Invoke());
             Controls.SetActive(false);

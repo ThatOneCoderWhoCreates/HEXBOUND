@@ -122,8 +122,8 @@ namespace HEXBOUND.Tests
         [Test]
         public void MagicAndRoster()
         {
-            Assert.AreEqual(750, NewMatch(0, 1, 1).Fighters[0].Magic);
-            Assert.AreEqual(3, GameContent.PlayableCount);
+            Assert.AreEqual(1000, NewMatch(0, 1, 1).Fighters[0].Magic);
+            Assert.AreEqual(5, GameContent.PlayableCount);
             Assert.AreEqual(0, GameContent.GetCharacter(GameContent.BeastId).MaxMagic);
         }
 
@@ -160,6 +160,29 @@ namespace HEXBOUND.Tests
         }
 
         [Test]
+        public void RocketJumpNeverHurtsTheLauncher()
+        {
+            int vex = 4;
+            Assert.AreEqual("Vex", GameContent.GetCharacter(vex).Name);
+            GameState s = NewMatch(vex, 1, 5);
+            int guard = 0;
+            while (s.Phase != MatchPhase.Fighting && guard++ < 2000) GameSimulation.Tick(s, InputFrame.Empty, InputFrame.Empty, null);
+            s.Fighters[0].Position = FixVec3.Zero;
+            s.Fighters[1].Position = new FixVec3(Fix.Zero, Fix.Zero, Fix.Milli(1600));
+            int hp0 = s.Fighters[0].Health;
+            int hp1 = s.Fighters[1].Health;
+            float top = 0f;
+            for (int i = 0; i < 120; i++)
+            {
+                GameSimulation.Tick(s, new InputFrame { Buttons = i == 0 ? InputButtons.Skill2 : InputButtons.None }, InputFrame.Empty, null);
+                top = System.Math.Max(top, s.Fighters[0].Position.Y.ToFloat());
+            }
+            Assert.Greater(top, 5f, "rocket jump height");
+            Assert.AreEqual(hp0, s.Fighters[0].Health, "own blast must not hurt");
+            Assert.Less(s.Fighters[1].Health, hp1, "blast hurts the opponent");
+        }
+
+        [Test]
         public void InputPacking()
         {
             var input = new InputFrame { Buttons = InputButtons.Heavy | InputButtons.LockOn | InputButtons.Heal, MoveAngle = 200, HasMove = true };
@@ -167,7 +190,7 @@ namespace HEXBOUND.Tests
         }
 
         [Test]
-        public void SameInputsGiveSameResult([Values(0, 1, 2)] int c0, [Values(0, 1, 2)] int c1)
+        public void SameInputsGiveSameResult([Values(0, 1, 2, 3, 4)] int c0, [Values(0, 1, 2, 3, 4)] int c1)
         {
             uint seed = (uint)(100 + c0 * 3 + c1);
             Assert.AreEqual(RunBots(c0, c1, seed, 6000), RunBots(c0, c1, seed, 6000));

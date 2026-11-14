@@ -10,5 +10,7 @@ namespace HEXBOUND.Simulation
         public int TicksLeft;
         /// <summary>Unique id per match so presentation can track each projectile.</summary>
         public int SerialId;
+        /// <summary>The projectile just exploded this tick; its blast is resolved by CombatResolver, then cleared.</summary>
+        public bool Exploding;
     }
 }

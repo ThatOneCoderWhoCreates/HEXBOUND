@@ -40,6 +40,8 @@ namespace HEXBOUND.Presentation
             public TrailRenderer Trail;
             public int SerialId;
             public bool Seen;
+            /// <summary>Points along its flight direction and does not pulse (missiles, bullets).</summary>
+            public bool Oriented;
         }
 
         /// <summary>Raised for floating text (damage numbers, PARRY, GUARD BREAK...). Position is in world space.</summary>
@@ -148,6 +150,13 @@ namespace HEXBOUND.Presentation
                     Color c = FighterColor(e.Fighter == 0 ? 1 : 0, 5f);
                     Flash(pos, new Color(4f, 3.5f, 2.5f), 0.12f, 0.3f, heavy ? 1.8f : 1.1f);
                     Burst(pos, c, heavy ? 16 : 9, heavy ? 9f : 6f, 0.35f);
+                    Burst(pos, new Color(5f, 4.5f, 3.5f), heavy ? 10 : 5, heavy ? 14f : 10f, 0.18f);
+                    if (heavy)
+                    {
+                        // Shockwave ring around the impact for big hits.
+                        Ring(pos, new Color(4f, 3f, 2f), 0.22f, 0.2f, 2.6f);
+                        RaiseShake(Mathf.Clamp(e.Param / 200f, 0.25f, 0.8f));
+                    }
                     _sfx.Play(heavy ? Sfx.HitHeavy : Sfx.Hit, 1f);
                     if (e.Type == SimEventType.GrabHit) _sfx.Play(Sfx.BodySlam, 0.9f);
                     RaisePopup(pos + Vector3.up * 0.4f, e.Param.ToString(), e.Type == SimEventType.GrabHit ? new Color(1f, 0.6f, 0.2f) : Color.white, heavy ? 1.3f : 1f);
@@ -184,6 +193,24 @@ namespace HEXBOUND.Presentation
                     break;
                 case SimEventType.ProjectileExpire:
                     Flash(pos, new Color(2f, 1.5f, 3f), 0.1f, 0.1f, 0.6f);
+                    break;
+                case SimEventType.Explosion:
+                {
+                    ProjectileDef def = e.Param >= 0 && e.Param < GameContent.Projectiles.Length ? GameContent.Projectiles[e.Param] : null;
+                    float radius = def != null ? Mathf.Max(0.8f, def.ExplodeRadius.ToFloat()) : 1.5f;
+                    Vector3 ground = new Vector3(pos.x, Mathf.Max(pos.y, 0.05f), pos.z);
+                    Flash(ground + Vector3.up * 0.4f, new Color(7f, 3.2f, 0.9f), 0.22f, radius * 0.4f, radius * 1.3f);
+                    Flash(ground + Vector3.up * 0.4f, new Color(5f, 5f, 4f), 0.08f, radius * 0.2f, radius * 0.7f);
+                    Ring(ground + Vector3.up * 0.06f, new Color(5f, 2.2f, 0.6f), 0.45f, 0.3f, radius * 2.2f);
+                    Burst(ground + Vector3.up * 0.3f, new Color(6f, 2.6f, 0.6f), 22, 6f + radius * 2f, 0.55f, true);
+                    Burst(ground + Vector3.up * 0.5f, new Color(0.35f, 0.32f, 0.3f), 14, 2.5f + radius, 1.1f, true);
+                    _sfx.Play(Sfx.Explosion, Mathf.Clamp01(0.55f + radius * 0.15f));
+                    RaiseShake(Mathf.Clamp(radius * 0.22f, 0.2f, 0.9f));
+                    break;
+                }
+                case SimEventType.WeaponSwitch:
+                    if (e.Fighter == _localIndex) _sfx.Play(Sfx.UiClick, 0.7f, 0f);
+                    RaisePopup(pos + Vector3.up * 2.2f, e.Param == 0 ? "LAUNCHER" : "PISTOL", FighterColor(e.Fighter, 1.2f), 0.7f);
                     break;
                 case SimEventType.Jump:
                     Ring(pos + Vector3.up * 0.05f, new Color(1.5f, 1.5f, 2f), 0.25f, 0.3f, 1.4f);
@@ -404,7 +431,7 @@ namespace HEXBOUND.Presentation
                 Vector3 vel = FighterView.ToVector(p.Velocity);
                 view.Go.transform.position = pos;
                 if (vel.sqrMagnitude > 1e-6f) view.Go.transform.rotation = Quaternion.LookRotation(vel.normalized, Vector3.up);
-                float pulse = 1f + Mathf.Sin(Time.unscaledTime * 25f + p.SerialId) * 0.1f;
+                float pulse = view.Oriented ? 1f : 1f + Mathf.Sin(Time.unscaledTime * 25f + p.SerialId) * 0.1f;
                 view.Go.transform.localScale = Vector3.one * pulse;
             }
 
@@ -429,6 +456,47 @@ namespace HEXBOUND.Presentation
             go.transform.SetParent(_root, false);
             float r = def.Radius.ToFloat();
             GameObject core;
+            if (def.VisualId == LauncherFighter.MissileVisual)
+            {
+                // Missile: dark body with a glowing nose; flame and smoke trail behind.
+                core = MaterialFactory.Primitive(PrimitiveType.Capsule, go.transform, MaterialFactory.Lit(new Color(0.18f, 0.2f, 0.22f), 0.6f, 0.7f), "Body");
+                core.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                core.transform.localScale = new Vector3(0.22f, 0.38f, 0.22f);
+                GameObject nose = MaterialFactory.Primitive(PrimitiveType.Sphere, go.transform, MaterialFactory.Glow(c), "Nose");
+                nose.transform.localPosition = new Vector3(0f, 0f, 0.34f);
+                nose.transform.localScale = Vector3.one * 0.2f;
+                nose.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                GameObject flame = MaterialFactory.Primitive(PrimitiveType.Sphere, go.transform, MaterialFactory.Glow(new Color(6f, 2.6f, 0.6f)), "Flame");
+                flame.transform.localPosition = new Vector3(0f, 0f, -0.42f);
+                flame.transform.localScale = new Vector3(0.2f, 0.2f, 0.4f);
+                flame.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                TrailRenderer smoke = go.AddComponent<TrailRenderer>();
+                smoke.time = 0.55f;
+                smoke.startWidth = 0.35f;
+                smoke.endWidth = 0.9f;
+                smoke.sharedMaterial = MaterialFactory.Additive(new Color(0.9f, 0.5f, 0.25f, 0.35f));
+                smoke.shadowCastingMode = ShadowCastingMode.Off;
+                var flameLight = new GameObject("Light").AddComponent<Light>();
+                flameLight.transform.SetParent(go.transform, false);
+                flameLight.type = LightType.Point;
+                flameLight.color = new Color(1f, 0.55f, 0.2f);
+                flameLight.range = 4.5f;
+                flameLight.intensity = 3f;
+                return new ProjectileView { Go = go, Trail = smoke, SerialId = p.SerialId, Oriented = true };
+            }
+            if (def.VisualId == LauncherFighter.BulletVisual)
+            {
+                core = MaterialFactory.Primitive(PrimitiveType.Sphere, go.transform, MaterialFactory.Glow(new Color(6f, 5f, 2.5f)), "Bullet");
+                core.transform.localScale = new Vector3(0.09f, 0.09f, 0.35f);
+                core.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                TrailRenderer streak = go.AddComponent<TrailRenderer>();
+                streak.time = 0.08f;
+                streak.startWidth = 0.08f;
+                streak.endWidth = 0f;
+                streak.sharedMaterial = MaterialFactory.Additive(new Color(4f, 3f, 1.5f));
+                streak.shadowCastingMode = ShadowCastingMode.Off;
+                return new ProjectileView { Go = go, Trail = streak, SerialId = p.SerialId, Oriented = true };
+            }
             if (def.VisualId == 1)
             {
                 // Sword wave: a wide, thin crescent.

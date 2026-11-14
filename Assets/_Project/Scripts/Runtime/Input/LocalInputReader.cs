@@ -10,7 +10,8 @@ namespace HEXBOUND.Input
     /// Movement is camera-relative: the camera yaw is applied here and the result is a world direction.
     ///
     /// Keyboard and mouse: WASD move, mouse camera, LMB light, RMB heavy, Q/E skills, R ultimate,
-    /// Shift dodge, Space jump, Left Ctrl block (tap just before a hit to parry), F grab, M recharge,
+    /// Shift dodge, Space jump, Left Ctrl block (tap just before a hit to parry), F grab, X recharge,
+    /// Z heal, C crouch, mouse wheel switch weapon,
     /// Tab or middle mouse lock-on.
     /// Gamepad: left stick move, right stick camera, X light, Y heavy, A jump, B dodge, LB block,
     /// RB skill 1, RT skill 2, LT ultimate, D-pad down grab, D-pad up recharge, right stick click lock-on.
@@ -164,6 +165,7 @@ namespace HEXBOUND.Input
                 if (mouse.leftButton.wasPressedThisFrame) b |= InputButtons.Light;
                 if (mouse.rightButton.wasPressedThisFrame) b |= InputButtons.Heavy;
                 if (mouse.middleButton.wasPressedThisFrame) b |= InputButtons.LockOn;
+                if (Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f) b |= InputButtons.SwitchWeapon;
             }
             if (pad != null)
             {
@@ -179,6 +181,7 @@ namespace HEXBOUND.Input
                 if (pad.dpad.up.wasPressedThisFrame) b |= InputButtons.Recharge;
                 if (pad.dpad.left.wasPressedThisFrame) b |= InputButtons.Heal;
                 if (pad.leftStickButton.wasPressedThisFrame) b |= InputButtons.Crouch;
+                if (pad.dpad.right.wasPressedThisFrame) b |= InputButtons.SwitchWeapon;
                 if (pad.rightStickButton.wasPressedThisFrame) b |= InputButtons.LockOn;
             }
             return b;

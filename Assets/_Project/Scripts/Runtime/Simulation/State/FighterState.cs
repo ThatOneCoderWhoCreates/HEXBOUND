@@ -62,6 +62,8 @@ namespace HEXBOUND.Simulation
         public bool LowGuardStun;
         /// <summary>The beast's low-health awakening has happened this round.</summary>
         public bool Awakened;
+        /// <summary>0 = primary weapon, 1 = secondary weapon (Launcher: missile launcher / pistol).</summary>
+        public byte WeaponMode;
 
         public BuffId Buff;
         public int BuffTicks;

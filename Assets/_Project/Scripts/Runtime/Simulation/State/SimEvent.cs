@@ -28,6 +28,9 @@ namespace HEXBOUND.Simulation
         NotEnoughMagic,
         Heal,
         Awaken,
+        /// <summary>A missile exploded (Param = projectile definition id).</summary>
+        Explosion,
+        WeaponSwitch,
     }
 
     /// <summary>Something that happened during a tick, for visuals and audio. Not part of the game state.</summary>
