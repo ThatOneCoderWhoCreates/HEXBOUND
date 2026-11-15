@@ -51,7 +51,7 @@ namespace HEXBOUND.Simulation
             c.Grab.Motions = new[] { ContentBuilder.Motion(2, 7, 60) };
 
             c.Recharge = b.Move("Recharge", 30, MovePose.Channel);
-            c.Recharge.MagicGain = 30;
+            c.Recharge.MagicGain = 50;
             c.Recharge.MagicGainTick = 12;
             c.Recharge.Slot = CooldownSlot.Recharge;
             c.Recharge.Cooldown = ContentBuilder.Seconds(5);

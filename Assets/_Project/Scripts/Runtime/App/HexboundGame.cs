@@ -564,10 +564,10 @@ namespace HEXBOUND.App
                 float yaw, pitch;
                 LocalInputReader.AimFromCamera(_camera.Yaw, _camera.Pitch, out yaw, out pitch);
                 Vector3 dir = Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
-                Vector3 muzzle = me.Position + Vector3.up * 1.45f;
+                Vector3 muzzle = me.Position + Vector3.up * 1.1f;
                 FighterView opp = _presenter.Fighters[1 - _localIndex];
                 bool onTarget = false;
-                float distance = 30f;
+                float distance = 20f;
                 if (opp != null)
                 {
                     Vector3 to = opp.Chest - muzzle;
@@ -579,13 +579,14 @@ namespace HEXBOUND.App
                     }
                 }
                 Vector3 screen = _camera.Camera.WorldToScreenPoint(muzzle + dir * distance);
-                _hud.SetCrosshair(screen.z > 0f, new Vector2(screen.x, screen.y), onTarget);
+                float reload = f.WeaponMode == 0 ? Mathf.Clamp01(f.CooldownShot / (float)LauncherFighter.RocketReloadTicks) : 0f;
+                _hud.SetCrosshair(screen.z > 0f, new Vector2(screen.x, screen.y), onTarget, reload);
             }
             else
             {
                 _hud.SetCrosshair(false, Vector2.zero, false);
             }
-            _hud.SetPrompt(me.CanPickUp && f.Grounded ? "G   Pick up weapon" : string.Empty);
+            _hud.SetPrompt(string.Empty);
         }
 
         private InputFrame SampleLocal()

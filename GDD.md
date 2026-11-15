@@ -57,7 +57,7 @@ One-line pitch: two hex-wielding fighters battle on a floating hexagonal arena, 
 | Space | Jump (rise while flying) |
 | Left Ctrl | Block (hold). Parry: start blocking at most 8 frames (0.13 s) before a hit |
 | F | Grab (beats block and parry, misses airborne targets) |
-| M | Recharge magic (+30, 5 second cooldown) |
+| M | Recharge magic (+50, 5 second cooldown) |
 | Z | Heal (+5% of max health, 20 second cooldown) |
 | Tab or middle mouse | Lock-on |
 | Esc | Pause |
@@ -68,7 +68,7 @@ Gamepad: X light, Y heavy, A jump, B dodge, LB block, RB skill 1, RT skill 2, LT
 
 - Health: 900 to 1100 depending on the fighter.
 - Magic: 500 maximum, full at the start of each round. Skills cost 100 to 180, ultimates 260 to 300. No passive regeneration.
-- Recharge (M): a short channel that gives +30 magic, usable every 5 seconds. You are open to attack while channeling.
+- Recharge (M): a short channel that gives +50 magic, usable every 5 seconds. You are open to attack while channeling.
 - Heal (Z): a short channel that restores 5% of maximum health (50 of 1000), usable every 20 seconds. Does nothing at full health. You are open to attack while channeling.
 - Every skill and ultimate also has its own cooldown.
 
@@ -192,3 +192,18 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 - Vex aiming: a crosshair shows where rockets and pistol shots go (camera aim; it snaps red onto the opponent within 7 degrees). Rockets fly at 42 m/s (pistol rounds 54 m/s). Aiming steeply down (35 degrees or more) and firing kicks Vex up (rocket jump), up to twice before landing; her own blasts never hurt her.
 - Vex model (Modly): launcher on her right shoulder in launcher mode, slung diagonally on her back in pistol mode, pistol in the right hand; rockets use the rocket model.
 - Celestial Sanctuary: the edge in front of the gate stairs is an invisible wall (no ring-out there); the bridge openings still ring out.
+
+## Update 2026-11-15: Vex rework, G drop and throw, auto pickup, bridge walls
+
+- G, all fighters who carry a weapon: tap to drop the weapon straight down at your feet; hold (0.3 s) and release to throw it. Run over your dropped weapon to pick it up (it is ready once you have stepped away from it). A weapon that falls off the arena is lost for the round.
+- Without the primary weapon (Vex: the launcher), Q, E and R are locked and show an X on the HUD.
+- Recharge (X) gives +50 magic for every fighter (was +30).
+- Vex: new model. Max magic 600. The launcher is carried at the right hip, braced under the arm. Left click fires a rocket on every click (up to about 4 per second). Rockets rise a little, then dive onto the crosshair target (lobbed arc). Direct rocket hit 220 damage, splash 60. Right click guards, the launcher held sideways across the chest with both hands (pistol mode: off arm raised). R Missile Rain deals up to 400 if every missile lands.
+- Celestial Sanctuary: invisible walls at all four walkway openings (gate stairs, east, south and west bridges). Fighters only ring out over the open edges between them.
+
+## Update 2026-11-15: balance
+
+- Bram's Golden Dragon (R) deals 400 on a hit (was 150).
+- Vex's rockets: a direct hit deals 100 (was 220); Cluster Missile (Q) 100 direct and 50 splash (was 220 and 110). Rocket splash 60 and Missile Rain (up to 400) are unchanged.
+- Vex fires one rocket every 1.75 seconds (on the ground and in the air). The first shot fires the moment you click. While reloading, the crosshair turns gray and wider.
+

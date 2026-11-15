@@ -45,6 +45,8 @@ namespace HEXBOUND.Simulation
         WeaponPickup,
         /// <summary>A downward shot pushed the shooter up.</summary>
         RecoilJump,
+        /// <summary>Q, E or R pressed without the primary weapon.</summary>
+        NeedWeapon,
     }
 
     /// <summary>Something that happened during a tick, for visuals and audio. Not part of the game state.</summary>

@@ -153,7 +153,7 @@ namespace HEXBOUND.Simulation
             dragon.Radius = ContentBuilder.M(1300);
             dragon.SpawnForward = ContentBuilder.M(1600);
             dragon.SpawnUp = ContentBuilder.M(1300);
-            dragon.Damage = 150;
+            dragon.Damage = 400;
             dragon.Hitstun = 40;
             dragon.Blockstun = 24;
             dragon.KnockbackH = ContentBuilder.M(330);
@@ -183,7 +183,7 @@ namespace HEXBOUND.Simulation
                 new AbilityInfo { Key = "C+LMB / C+RMB", Name = "Slide / Guard Slide", Description = "Low slide attack, or slip backward with the staff up (attacks pass through)." },
                 new AbilityInfo { Key = "Q", Name = "Triple Strike", Description = "Three fast, heavy thrusts; the last knocks back. 120 magic." },
                 new AbilityInfo { Key = "E", Name = "Dragon Slide", Description = "A long, fast slide, staff tip first. Hits hard and beats a standing block. 120 magic." },
-                new AbilityInfo { Key = "R", Name = "Golden Dragon", Description = "A golden dragon flies straight out from the staff and crashes into the opponent. 300 magic." },
+                new AbilityInfo { Key = "R", Name = "Golden Dragon", Description = "A golden dragon flies straight out from the staff and crashes into the opponent for 400 damage. 300 magic." },
             };
             return c;
         }

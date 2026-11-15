@@ -11,6 +11,8 @@ namespace HEXBOUND.Simulation
     {
         public const int MissileVisual = 10;
         public const int BulletVisual = 11;
+        /// <summary>Ticks between rockets (1.75 seconds).</summary>
+        public const int RocketReloadTicks = GameConfig.TickRate * 7 / 4;
 
         public static CharacterDef Build(ContentBuilder b, CommonMoves common)
         {
@@ -31,14 +33,23 @@ namespace HEXBOUND.Simulation
                 ColorG = 210,
                 ColorB = 190,
                 ThrowDamage = 60,
+                MaxMagic = 600,
+                // Right click is a guard: the weapon held sideways across the body with both hands.
+                HeavyIsGuard = true,
                 ThrowDamageSecondary = 30,
             };
             common.ApplyTo(c);
 
             // Rockets fly to the crosshair, a little slower than pistol rounds. Fired steeply downward they kick Vex up.
-            ProjectileDef missile = Missile(b, "Missile", 700, 50, 1800, 45);
+            // A direct rocket hit deals 100; the blast alone (60) hurts anyone near where it lands.
+            ProjectileDef missile = Missile(b, "Missile", 700, 50, 1800, 60);
+            missile.Damage = 100;
             missile.RecoilLift = ContentBuilder.M(420);
-            ProjectileDef bigMissile = Missile(b, "Cluster Missile", 450, 70, 3200, 90);
+            ProjectileDef twinMissile = Missile(b, "Twin Missile", 700, 50, 1600, 40);
+            twinMissile.Damage = 90;
+            twinMissile.RecoilLift = ContentBuilder.M(420);
+            ProjectileDef bigMissile = Missile(b, "Cluster Missile", 450, 70, 3200, 50);
+            bigMissile.Damage = 100;
             bigMissile.RecoilLift = ContentBuilder.M(500);
             bigMissile.ExplodeKnockbackH = ContentBuilder.M(300);
             bigMissile.ExplodeKnockbackV = ContentBuilder.M(300);
@@ -63,12 +74,12 @@ namespace HEXBOUND.Simulation
             rain.SpawnUp = Fix.FromInt(12);
             rain.SpawnForward = ContentBuilder.M(1400);
             rain.FromSky = true;
-            rain.Damage = 40;
+            rain.Damage = 70;
             rain.Hitstun = 20;
             rain.ExplodeRadius = ContentBuilder.M(1900);
-            rain.ExplodeDamage = 45;
-            rain.ExplodeKnockbackH = ContentBuilder.M(150);
-            rain.ExplodeKnockbackV = ContentBuilder.M(220);
+            rain.ExplodeDamage = 70;
+            rain.ExplodeKnockbackH = ContentBuilder.M(30);
+            rain.ExplodeKnockbackV = ContentBuilder.M(40);
             rain.VisualId = MissileVisual;
 
             ProjectileDef bullet = b.Projectile("Bullet");
@@ -100,18 +111,23 @@ namespace HEXBOUND.Simulation
             heavyBullet.VisualId = BulletVisual;
 
             // Launcher (primary): one missile per click; right click fires two.
-            var shot = b.Move("Missile", 36, MovePose.Aim);
-            shot.Spawns = new[] { ContentBuilder.Spawn(12, missile) };
-            shot.CancelStart = 24;
-            shot.CancelEnd = 35;
+            // Fires the moment you click, then reloads: 1.75 seconds between rockets.
+            var shot = b.Move("Missile", 16, MovePose.Aim);
+            shot.Spawns = new[] { ContentBuilder.Spawn(2, missile) };
+            shot.CancelStart = 14;
+            shot.CancelEnd = 15;
+            shot.Slot = CooldownSlot.Shot;
+            shot.Cooldown = RocketReloadTicks;
             c.LightChain = new[] { shot };
 
             c.Heavy = b.Move("Twin Missiles", 50, MovePose.Aim);
-            c.Heavy.Spawns = new[] { ContentBuilder.Spawn(16, missile, -9), ContentBuilder.Spawn(20, missile, 9) };
+            c.Heavy.Spawns = new[] { ContentBuilder.Spawn(16, twinMissile, -9), ContentBuilder.Spawn(20, twinMissile, 9) };
             c.Heavy.Motions = new[] { ContentBuilder.Motion(16, 22, -60) };
 
             c.AirLight = b.Move("Air Missile", 30, MovePose.Aim);
             c.AirLight.Spawns = new[] { ContentBuilder.Spawn(8, missile) };
+            c.AirLight.Slot = CooldownSlot.Shot;
+            c.AirLight.Cooldown = RocketReloadTicks;
             c.AirLight.UsableOnGround = false;
             c.AirLight.UsableInAir = true;
             c.AirLight.GravityScale = ContentBuilder.M(300);
@@ -185,11 +201,12 @@ namespace HEXBOUND.Simulation
 
             c.Abilities = new[]
             {
-                new AbilityInfo { Key = "LMB", Name = "Rocket", Description = "Fires at the crosshair (snaps onto the opponent when close). Aim at the floor to rocket-jump." },
+                new AbilityInfo { Key = "LMB", Name = "Rocket", Description = "100 damage, one rocket every 1.75 s. Fires at the crosshair in a shallow arc (snaps onto the opponent when close). Aim at the floor to rocket-jump." },
+                new AbilityInfo { Key = "RMB", Name = "Guard", Description = "Hold the weapon sideways with both hands to block." },
                 new AbilityInfo { Key = "Wheel", Name = "Switch weapon", Description = "Missile launcher (explosive) or pistol (fast shots)." },
                 new AbilityInfo { Key = "Q", Name = "Cluster Missile", Description = "A slow missile with a huge blast. 150 magic." },
                 new AbilityInfo { Key = "E", Name = "Rocket Jump", Description = "Shoot the floor: fly high, blast anyone nearby. Your blasts never hurt you. 80 magic." },
-                new AbilityInfo { Key = "R", Name = "Missile Rain", Description = "Eight missiles fall around the opponent. 300 magic." },
+                new AbilityInfo { Key = "R", Name = "Missile Rain", Description = "Eight missiles fall around the opponent, up to 400 damage. 300 magic." },
             };
             return c;
         }
@@ -200,8 +217,8 @@ namespace HEXBOUND.Simulation
             m.Speed = ContentBuilder.M(speedMilli);
             m.Lifetime = lifetime;
             m.Radius = ContentBuilder.M(450);
-            m.SpawnForward = ContentBuilder.M(900);
-            m.SpawnUp = ContentBuilder.M(1500);
+            m.SpawnForward = ContentBuilder.M(1100);
+            m.SpawnUp = ContentBuilder.M(1100);
             m.Damage = 60;
             m.Hitstun = 24;
             m.KnockbackH = ContentBuilder.M(160);
@@ -214,15 +231,17 @@ namespace HEXBOUND.Simulation
             m.ExplodeKnockbackH = ContentBuilder.M(180);
             m.ExplodeKnockbackV = ContentBuilder.M(200);
             m.VisualId = MissileVisual;
+            // Fired from the hip, the rocket climbs a little and dives back onto the aim point (a shallow arc).
+            m.Gravity = ContentBuilder.M(9);
             return m;
         }
 
         private static MoveDef PistolShot(ContentBuilder b, string name, ProjectileDef bullet)
         {
-            MoveDef m = b.Move(name, 14, MovePose.Shoot);
-            m.Spawns = new[] { ContentBuilder.Spawn(4, bullet) };
-            m.CancelStart = 7;
-            m.CancelEnd = 13;
+            MoveDef m = b.Move(name, 10, MovePose.Shoot);
+            m.Spawns = new[] { ContentBuilder.Spawn(2, bullet) };
+            m.CancelStart = 5;
+            m.CancelEnd = 9;
             return m;
         }
     }

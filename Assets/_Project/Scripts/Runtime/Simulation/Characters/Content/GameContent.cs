@@ -30,7 +30,7 @@ namespace HEXBOUND.Simulation
                 LauncherFighter.Build(b, common),
                 BeastFighter.Build(b, common),
             };
-            // Weapon throws (G), built after every fighter so earlier ids never change.
+            // Weapon throws (hold G), built after every fighter so earlier ids never change.
             for (int i = 0; i < Characters.Length; i++)
             {
                 CharacterDef c = Characters[i];

@@ -141,6 +141,22 @@ namespace HEXBOUND.Simulation
                 if (f.BufferTicks == 0) f.BufferedButton = InputButtons.None;
             }
 
+            // G acts on release: a tap drops the weapon at your feet, holding it first throws the weapon.
+            if (c.CanThrowWeapon)
+            {
+                if (input.Held(InputButtons.Throw))
+                {
+                    if (f.ThrowHold < 255) f.ThrowHold++;
+                }
+                else if (f.ThrowHold > 0)
+                {
+                    f.ThrowCharged = f.ThrowHold >= ThrowHoldTicks;
+                    f.ThrowHold = 0;
+                    f.BufferedButton = InputButtons.Throw;
+                    f.BufferTicks = GameConfig.InputBufferTicks;
+                }
+            }
+
             TickTimers(ref f, s, index, ev);
 
             if (f.HitStop > 0)
@@ -228,7 +244,6 @@ namespace HEXBOUND.Simulation
             if ((pressed & InputButtons.Jump) != 0) return InputButtons.Jump;
             if ((pressed & InputButtons.Recharge) != 0) return InputButtons.Recharge;
             if ((pressed & InputButtons.Heal) != 0) return InputButtons.Heal;
-            if ((pressed & InputButtons.Throw) != 0) return InputButtons.Throw;
             return InputButtons.None;
         }
 
@@ -240,6 +255,7 @@ namespace HEXBOUND.Simulation
             if (f.CooldownRecharge > 0) f.CooldownRecharge--;
             if (f.CooldownDodge > 0) f.CooldownDodge--;
             if (f.CooldownHeal > 0) f.CooldownHeal--;
+            if (f.CooldownShot > 0) f.CooldownShot--;
             if (f.ComboGrace > 0) f.ComboGrace--;
             if (f.InvulnTicks > 0) f.InvulnTicks--;
             if (f.RehitTimer > 0) f.RehitTimer--;
@@ -470,12 +486,15 @@ namespace HEXBOUND.Simulation
                         if (ev != null) ev.Add(s.Tick, SimEventType.BuffEnd, index, (int)BuffId.Levitate, f.Position);
                         return false;
                     }
+                    if (NeedsPrimary(s, index, ref f, c, ev)) return false;
                     move = c.Ultimate;
                     break;
                 case InputButtons.Skill1:
+                    if (NeedsPrimary(s, index, ref f, c, ev)) return false;
                     move = c.Skill1;
                     break;
                 case InputButtons.Skill2:
+                    if (NeedsPrimary(s, index, ref f, c, ev)) return false;
                     move = c.Skill2;
                     break;
                 case InputButtons.Grab:
@@ -483,17 +502,19 @@ namespace HEXBOUND.Simulation
                     move = c.Grab;
                     break;
                 case InputButtons.Throw:
-                    if (TryPickUp(s, index, ref f, c, ev))
-                    {
-                        ConsumeBuffer(ref f);
-                        return false;
-                    }
+                    // G tapped: the weapon drops straight down at the fighter's feet. G held, then released: it is thrown.
                     if (!armed || !c.CanThrowWeapon)
                     {
                         ConsumeBuffer(ref f);
                         return false;
                     }
-                    move = f.WeaponMode == 1 ? c.ThrowSecondary : c.ThrowPrimary;
+                    move = f.ThrowCharged ? (f.WeaponMode == 1 ? c.ThrowSecondary : c.ThrowPrimary) : null;
+                    if (move == null)
+                    {
+                        ConsumeBuffer(ref f);
+                        DropWeapon(s, index, ref f, c, ev);
+                        return false;
+                    }
                     break;
                 case InputButtons.Heavy:
                     if (!armed && !(input.Held(InputButtons.Crouch) && !air && c.CrouchAttack != null))
@@ -596,7 +617,8 @@ namespace HEXBOUND.Simulation
 
             ConsumeBuffer(ref f);
             if (!infinite) f.Magic -= move.MagicCost;
-            if (!infinite) SetCooldown(ref f, move);
+            // The rocket fire rate applies even with infinite magic (it is a weapon limit, not an ability cooldown).
+            if (!infinite || move.Slot == CooldownSlot.Shot) SetCooldown(ref f, move);
             if (air && move == c.AirDash && !flying) f.AirDashUsed = true;
             StartMove(s, index, ref f, c, move, comboStep, input, ref opp, ev);
             return true;
@@ -618,6 +640,7 @@ namespace HEXBOUND.Simulation
                 case CooldownSlot.Recharge: return f.CooldownRecharge <= 0;
                 case CooldownSlot.Dodge: return f.CooldownDodge <= 0;
                 case CooldownSlot.Heal: return f.CooldownHeal <= 0;
+                case CooldownSlot.Shot: return f.CooldownShot <= 0;
                 default: return true;
             }
         }
@@ -632,6 +655,7 @@ namespace HEXBOUND.Simulation
                 case CooldownSlot.Recharge: f.CooldownRecharge = move.Cooldown; break;
                 case CooldownSlot.Dodge: f.CooldownDodge = move.Cooldown; break;
                 case CooldownSlot.Heal: f.CooldownHeal = move.Cooldown; break;
+                case CooldownSlot.Shot: f.CooldownShot = move.Cooldown; break;
             }
         }
 
@@ -778,6 +802,7 @@ namespace HEXBOUND.Simulation
             int bit = 1 << f.WeaponMode;
             if ((f.WeaponsHeld & bit) == 0) return;
             f.WeaponsHeld = (byte)(f.WeaponsHeld & ~bit);
+            f.PickupReady = (byte)(f.PickupReady & ~bit);
             if (slot >= 0)
             {
                 s.Projectiles[slot].Carries = (byte)(f.WeaponMode + 1);
@@ -810,30 +835,74 @@ namespace HEXBOUND.Simulation
             return weapon == 0 ? f.DropPos0 : f.DropPos1;
         }
 
-        /// <summary>Range within which G picks up your own weapon from the floor.</summary>
-        public static readonly Fix PickUpRange = Fix.Milli(1800);
+        /// <summary>Holding G at least this long (0.3 s) before releasing throws the weapon instead of dropping it.</summary>
+        public const int ThrowHoldTicks = 18;
 
-        /// <summary>G next to your own dropped weapon picks it up (and puts it in hand).</summary>
-        private static bool TryPickUp(GameState s, int index, ref FighterState f, CharacterDef c, EventBuffer ev)
+        /// <summary>Q, E and R belong to the primary weapon: without it they cannot be used (the press is used up).</summary>
+        private static bool NeedsPrimary(GameState s, int index, ref FighterState f, CharacterDef c, EventBuffer ev)
         {
-            if (f.WeaponsDropped == 0 || !f.Grounded) return false;
+            if (!c.CanThrowWeapon || (f.WeaponsHeld & 1) != 0) return false;
+            ConsumeBuffer(ref f);
+            if (ev != null) ev.Add(s.Tick, SimEventType.NeedWeapon, index, 0, f.Position);
+            return true;
+        }
+
+        /// <summary>The weapon in hand drops to the floor right under the fighter (lost if that is off the arena).</summary>
+        private static void DropWeapon(GameState s, int index, ref FighterState f, CharacterDef c, EventBuffer ev)
+        {
+            int w = f.WeaponMode;
+            int bit = 1 << w;
+            f.WeaponsHeld = (byte)(f.WeaponsHeld & ~bit);
+            f.PickupReady = (byte)(f.PickupReady & ~bit);
+            FixVec3 at = new FixVec3(f.Position.X, Fix.Zero, f.Position.Z);
+            if (Arena.IsInside(at, Fix.Milli(200)))
+            {
+                SetDropPos(ref f, w, at);
+                f.WeaponsDropped = (byte)(f.WeaponsDropped | bit);
+                if (ev != null) ev.Add(s.Tick, SimEventType.WeaponDrop, index, bit, f.Position);
+            }
+            else if (ev != null)
+            {
+                ev.Add(s.Tick, SimEventType.WeaponLost, index, bit, f.Position);
+            }
+            int other = 1 - w;
+            if (c.SecondaryWeapon != null && (f.WeaponsHeld & (1 << other)) != 0)
+            {
+                f.WeaponMode = (byte)other;
+                if (ev != null) ev.Add(s.Tick, SimEventType.WeaponSwitch, index, f.WeaponMode, f.Position);
+            }
+        }
+
+        /// <summary>Walking over your own dropped weapon picks it up, once you have stepped away from where you dropped it.</summary>
+        public static readonly Fix PickUpRange = Fix.Milli(900);
+        private static readonly Fix PickUpArmRange = Fix.Milli(1400);
+
+        private static void AutoPickUp(GameState s, int index, ref FighterState f, CharacterDef c, EventBuffer ev)
+        {
+            if (f.WeaponsDropped == 0) return;
+            bool able = f.Grounded && f.Action != FighterAction.KO && f.Action != FighterAction.RingOut && f.Action != FighterAction.Knockdown;
             for (int w = 0; w < 2; w++)
             {
                 int bit = 1 << w;
                 if ((f.WeaponsDropped & bit) == 0) continue;
                 FixVec3 d = (GetDropPos(ref f, w) - f.Position).Horizontal();
-                if (d.LengthSquared() > PickUpRange * PickUpRange) continue;
+                Fix distSq = d.LengthSquared();
+                if (distSq > PickUpArmRange * PickUpArmRange)
+                {
+                    f.PickupReady = (byte)(f.PickupReady | bit);
+                    continue;
+                }
+                if ((f.PickupReady & bit) == 0 || !able || distSq > PickUpRange * PickUpRange) continue;
+                bool wasUnarmed = !IsArmed(ref f, c);
                 f.WeaponsDropped = (byte)(f.WeaponsDropped & ~bit);
                 f.WeaponsHeld = (byte)(f.WeaponsHeld | bit);
-                if (f.WeaponMode != w && c.SecondaryWeapon != null)
+                if (wasUnarmed && f.WeaponMode != w && c.SecondaryWeapon != null)
                 {
                     f.WeaponMode = (byte)w;
                     if (ev != null) ev.Add(s.Tick, SimEventType.WeaponSwitch, index, f.WeaponMode, f.Position);
                 }
                 if (ev != null) ev.Add(s.Tick, SimEventType.WeaponPickup, index, bit, f.Position);
-                return true;
             }
-            return false;
         }
 
         /// <summary>
@@ -845,6 +914,7 @@ namespace HEXBOUND.Simulation
             for (int i = 0; i < 2; i++)
             {
                 ref FighterState f = ref s.Fighters[i];
+                AutoPickUp(s, i, ref f, GameContent.GetCharacter(f.CharacterId), ev);
                 if (f.WeaponsThrown == 0) continue;
                 for (int w = 0; w < 2; w++)
                 {

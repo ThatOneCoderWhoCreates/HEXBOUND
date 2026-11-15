@@ -60,13 +60,13 @@ namespace HEXBOUND.UI
                 "Space  Jump (rise while flying)\n" +
                 "Left Ctrl  Block (hold)  |  Parry: tap just before a hit\n" +
                 "F  Grab (beats block)\n" +
-                "X  Recharge magic (+30, every 5 s)\n" +
+                "X  Recharge magic (+50, every 5 s)\n" +
                 "Z  Heal (+5% health, every 20 s)\n" +
                 "C (hold)  Crouch: ducks high attacks\n" +
                 "C + Left click  Low sweep (beats a standing block)\n" +
                 "C + Right click (hold)  Low guard (loses to overheads, air attacks, grabs)\n" +
                 "Mouse wheel  Switch weapon (Vex: launcher / pistol)\n" +
-                "G  Throw your weapon (it hits!) / pick it up again when next to it\n" +
+                "G  Tap: drop your weapon  /  Hold: throw it (it hits!)  /  Walk over a dropped weapon to pick it up\n" +
                 "    Without a weapon you punch (weaker) but run 20% faster. Weapons return each round.\n" +
                 "Tab / Middle mouse  Lock-on\n" +
                 "Esc  Pause";

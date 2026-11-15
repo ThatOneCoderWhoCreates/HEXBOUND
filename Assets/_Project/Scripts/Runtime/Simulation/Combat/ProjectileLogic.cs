@@ -17,6 +17,9 @@ namespace HEXBOUND.Simulation
         /// <summary>Aim assist: a crosshair shot this close (in angle) to the opponent's chest goes straight at it.</summary>
         private static readonly int AimAssistAngle = FixMath.FullTurn * 7 / 360;
 
+        /// <summary>Distance an arcing shot is lobbed for when it is not aimed straight at the opponent.</summary>
+        private static readonly Fix ArcRange = Fix.FromInt(20);
+
         /// <summary>Spawns a projectile. Returns its slot, or -1 if none was free.</summary>
         public static int Spawn(GameState s, int owner, ProjectileSpawn spawn, ref FighterState opponent, EventBuffer ev)
         {
@@ -94,6 +97,30 @@ namespace HEXBOUND.Simulation
             p.DefId = def.Id;
             p.Position = origin;
             p.Velocity = dir * def.Speed;
+            if (def.Gravity > Fix.Zero && !def.Downward && !def.FromSky && dir.Y > -Fix.Milli(500))
+            {
+                // Lob compensation: add the upward speed that gravity takes away over the flight to the aim point,
+                // so the shot arcs up and comes back down on target (20 m away when nothing is targeted).
+                Fix range = ArcRange;
+                if (opponent.Action != FighterAction.KO && opponent.Action != FighterAction.RingOut)
+                {
+                    Fix toOpp = (opponent.Position - origin).HorizontalLength();
+                    FixVec3 flat = dir.Horizontal();
+                    Fix flatLen = flat.HorizontalLength();
+                    FixVec3 toO = (opponent.Position - origin).Horizontal();
+                    if (flatLen > Fix.Zero && toOpp > Fix.Zero && toOpp < Fix.FromInt(40))
+                    {
+                        Fix along = (toO.X * flat.X + toO.Z * flat.Z) / (toOpp * flatLen);
+                        if (along > Fix.Milli(985)) range = toOpp;
+                    }
+                }
+                Fix horizontalSpeed = (dir * def.Speed).HorizontalLength();
+                if (horizontalSpeed > Fix.Milli(50))
+                {
+                    Fix ticks = range / horizontalSpeed;
+                    p.Velocity.Y = p.Velocity.Y + def.Gravity * ticks * Fix.Half;
+                }
+            }
             p.TicksLeft = def.Lifetime;
             p.SerialId = s.NextProjectileSerial++;
             p.Exploding = false;

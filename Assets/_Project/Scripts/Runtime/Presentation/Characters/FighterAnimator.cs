@@ -23,6 +23,7 @@ namespace HEXBOUND.Presentation
             // Vex: launcher muzzle direction on the shoulder (body space), and 0 = on the shoulder .. 1 = slung on the back.
             public Vector3 LauncherDir;
             public float LauncherBack;
+            public float LauncherGuard;
         }
 
         private readonly FighterVisual _v;
@@ -166,6 +167,7 @@ namespace HEXBOUND.Presentation
             a.StaffDir = a.StaffDir.sqrMagnitude < 1e-6f ? b.StaffDir : Vector3.Slerp(a.StaffDir, b.StaffDir, k);
             a.LauncherDir = a.LauncherDir.sqrMagnitude < 1e-6f ? b.LauncherDir : Vector3.Slerp(a.LauncherDir, b.LauncherDir, k);
             a.LauncherBack = Mathf.Lerp(a.LauncherBack, b.LauncherBack, k);
+            a.LauncherGuard = Mathf.Lerp(a.LauncherGuard, b.LauncherGuard, k);
         }
 
         /// <summary>Overlays a motion-capture pose on the procedural one, for the body parts the clip covers.</summary>
@@ -405,13 +407,10 @@ namespace HEXBOUND.Presentation
             {
                 if (f.WeaponMode == 0 && _v.LauncherHolder != null)
                 {
-                    // Launcher on the right shoulder: right hand on the rear grip, left hand forward on the front grip.
-                    float bob = Mathf.Sin(_time * (f.Action == FighterAction.Move ? 9f : 3f)) * 0.03f;
-                    p.UpperArmR = V(0.35f, -0.55f + bob, 0.45f);
-                    p.ForeArmR = V(-0.12f, 0.75f, 0.65f);
-                    p.UpperArmL = V(0.55f, -0.1f, 0.83f);
-                    p.ForeArmL = V(0.65f, 0.05f, 0.76f);
-                    p.LauncherDir = V(0f, 0.08f + bob, 1f);
+                    // Launcher held at the right hip, braced under the arm: right hand down on the rear grip,
+                    // shoulders turned so the left hand reaches the top handle.
+                    float bob = Mathf.Sin(_time * (f.Action == FighterAction.Move ? 9f : 3f)) * 0.02f;
+                    HipCarry(ref p, 0.03f + bob);
                 }
                 else if (f.WeaponMode == 0)
                 {
@@ -450,6 +449,25 @@ namespace HEXBOUND.Presentation
                 p.UpperArmL = V(-0.45f, -0.4f, 0.8f);
                 p.ForeArmL = V(0.1f, 0.25f, 0.95f);
                 p.SpinePitch = f.Action == FighterAction.BlockStun ? 2f : 8f;
+                if (c.Stance == FighterStance.Gunner && f.WeaponMode == 0 && _v.LauncherHolder != null)
+                {
+                    // Launcher guard: the tube held sideways across the chest with both hands, like the mage's staff.
+                    p.UpperArmR = V(0.35f, -0.5f, 0.8f);
+                    p.ForeArmR = V(-0.2f, 0.3f, 0.95f);
+                    p.UpperArmL = V(-0.4f, -0.5f, 0.75f);
+                    p.ForeArmL = V(0.2f, 0.3f, 0.95f);
+                    p.SpineYaw = 0f;
+                    p.LauncherBack = 0f;
+                    p.LauncherGuard = 1f;
+                }
+                else if (c.Stance == FighterStance.Gunner)
+                {
+                    // Pistol guard: the off arm raised in front of the face, the pistol tucked close.
+                    p.UpperArmL = V(-0.3f, -0.35f, 0.85f);
+                    p.ForeArmL = V(0.55f, 0.75f, 0.3f);
+                    p.UpperArmR = V(0.3f, -0.7f, 0.5f);
+                    p.ForeArmR = V(-0.1f, 0.55f, 0.8f);
+                }
             }
 
             if (_beast) BeastPose(ref p, ref f, c, dt, speed);
@@ -793,6 +811,19 @@ namespace HEXBOUND.Presentation
             if (end <= start) end = start + 2;
         }
 
+        /// <summary>Vex's hip carry (reference: heavy launcher held low at the right hip). lift tilts the muzzle up or down.</summary>
+        private static void HipCarry(ref Pose p, float lift)
+        {
+            lift = Mathf.Clamp(lift, -0.7f, 0.7f);
+            p.UpperArmR = V(0.13f, -0.95f, 0.3f);
+            p.ForeArmR = V(0.12f, -0.9f + lift * 0.3f, 0.4f);
+            p.UpperArmL = V(0.75f, -0.32f + lift * 0.3f, 0.55f);
+            p.ForeArmL = V(0.7f, 0.12f + lift * 0.4f, 0.5f);
+            p.SpineYaw = 30f;
+            p.SpinePitch = 5f;
+            p.LauncherDir = V(0f, lift, 1f);
+        }
+
         private void AttackPose(ref Pose p, ref FighterState f, MoveDef m, bool flying)
         {
             int start, end;
@@ -1013,13 +1044,10 @@ namespace HEXBOUND.Presentation
                     p.ForeArmL = Vector3.Slerp(V(0.45f, 0.05f, 0.9f), aim, 0.7f);
                     if (_v.LauncherHolder != null && !down && !up)
                     {
-                        // Shoulder-fired: hands stay on the grips while the launcher follows the crosshair and kicks up on firing.
-                        float lift = Mathf.Clamp(aim.y, -0.6f, 0.6f);
-                        p.UpperArmR = V(0.35f, -0.55f + lift * 0.4f, 0.45f);
-                        p.ForeArmR = V(-0.12f, 0.75f + lift * 0.6f, 0.65f);
-                        p.UpperArmL = V(0.55f, -0.1f + lift * 0.5f, 0.83f);
-                        p.ForeArmL = V(0.65f, 0.05f + lift * 0.6f, 0.76f);
-                        p.LauncherDir = aim + V(0f, recoil * 0.3f, 0f);
+                        // Hip-fired: hands stay on the grips while the launcher follows the crosshair and kicks on firing.
+                        HipCarry(ref p, aim.y);
+                        p.LauncherDir = aim + V(0f, recoil * 0.25f, 0f);
+                        p.SpinePitch -= recoil * 6f;
                     }
                     p.SpinePitch = (up ? -14f : down ? 18f : 4f) - recoil * 10f;
                     p.SpineYaw = 12f;
@@ -1190,14 +1218,26 @@ namespace HEXBOUND.Presentation
             if (_v.LauncherHolder != null && rig.Chest != null)
             {
                 Vector3 dir = p.LauncherDir.sqrMagnitude > 1e-6f ? p.LauncherDir.normalized : Vector3.forward;
-                Vector3 shoulderPos = rig.Chest.position + body.TransformDirection(new Vector3(0.17f, 0.23f, 0.02f));
+                // Carried low at the right hip (the holder is behind the launcher's middle, near the rear grip).
+                Vector3 shoulderPos = rig.Chest.position + body.TransformDirection(new Vector3(0.2f, -0.2f, 0.05f));
                 Quaternion shoulderRot = Quaternion.LookRotation(body.TransformDirection(dir), body.up);
                 Quaternion backRot = Quaternion.LookRotation(body.TransformDirection(new Vector3(-0.55f, 1f, 0f).normalized), -body.forward);
                 // On the back, the launcher's middle sits between the shoulder blades (the holder is behind its center).
                 Vector3 backPos = rig.Chest.position + body.TransformDirection(new Vector3(0f, -0.02f, -0.24f)) - backRot * new Vector3(0f, 0f, FighterRigBuilder.LauncherForwardOffset);
                 float k = Mathf.SmoothStep(0f, 1f, p.LauncherBack);
-                _v.LauncherHolder.position = Vector3.Lerp(shoulderPos, backPos, k);
-                _v.LauncherHolder.rotation = Quaternion.Slerp(shoulderRot, backRot, k);
+                Vector3 pos = Vector3.Lerp(shoulderPos, backPos, k);
+                Quaternion rot = Quaternion.Slerp(shoulderRot, backRot, k);
+                float g = Mathf.SmoothStep(0f, 1f, p.LauncherGuard);
+                if (g > 0.001f)
+                {
+                    // Guard: the launcher's middle sits in front of the chest, the tube level and pointing to the left.
+                    Quaternion guardRot = Quaternion.LookRotation(body.TransformDirection(new Vector3(-1f, 0.1f, 0f).normalized), body.forward);
+                    Vector3 guardPos = rig.Chest.position + body.TransformDirection(new Vector3(0f, -0.1f, 0.42f)) - guardRot * new Vector3(0f, 0f, FighterRigBuilder.LauncherForwardOffset);
+                    pos = Vector3.Lerp(pos, guardPos, g);
+                    rot = Quaternion.Slerp(rot, guardRot, g);
+                }
+                _v.LauncherHolder.position = pos;
+                _v.LauncherHolder.rotation = rot;
             }
             if (_v.PistolHolder != null && rig.HandR != null && rig.ForeArmR != null)
             {

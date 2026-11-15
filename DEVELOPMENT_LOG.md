@@ -4,6 +4,45 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-15: Balance: Golden Dragon 400, rockets 100 with a 1.75 s reload
+
+### Request (Tanmay)
+Mage's ultimate 400 damage; launcher attacks 100 instead of 200; 1.5 to 2 seconds between shots.
+
+### Changes
+- StaffFighter: dragon.Damage 400.
+- LauncherFighter: missile 100, Cluster Missile 100 direct and 50 splash; RocketReloadTicks 105 (1.75 s) on the Missile and Air Missile moves.
+- New CooldownSlot.Shot and FighterState.CooldownShot (checksummed, reset each round). The shot cooldown applies even with infinite magic.
+- MatchHud.SetCrosshair takes a reload fraction: gray and wider while reloading.
+
+### Tests
+rostertest: dragon 400 (Lyra 900 to 500), direct rocket 100, 3 rockets in 4 s of clicking with the first at tick 2. All suites pass.
+
+### Open issues
+- The pistol keeps its fast fire rate.
+
+---
+
+## 2026-11-15: Vex rework, G tap/hold, auto pickup, bridge walls
+
+### Request (Tanmay)
+Vex holds the launcher at the hip (reference image); G drops the weapon straight down; rocket hit at least 200; walking over a dropped weapon picks it up; Q/E/R blocked without the primary weapon. Then: new Vex model (launcher_final.glb); ultimate up to 400 damage; Vex magic 600; X +50 for everyone; left click fires on every click; right click guards with the launcher sideways in both hands like the mage; rockets go up a little and dive down; G tap drops, long press throws (all fighters). Bugs: the south pathway and the east and west bridges also sent fighters flying; add invisible walls like the stairs.
+
+### Changes
+- Simulation: FighterState ThrowHold, ThrowCharged, PickupReady. G is handled on release (ThrowHoldTicks 18): tap = DropWeapon, hold = throw move. FighterLogic.AutoPickUp (0.9 m, armed after moving 1.4 m away, grounded only). NeedsPrimary blocks Q/E/R (SimEventType.NeedWeapon). CommonMoves recharge 50. Vex: MaxMagic 600, HeavyIsGuard, missile 16 ticks (spawn tick 2), pistol 10 ticks, missile Gravity 0.009 with lob compensation in ProjectileLogic (aims the arc to land on the crosshair target or 20 m out), Damage 220, Missile Rain 70 + 70 splash with low knockback. Arena: Sanctuary wall arcs at 0, 90, 180 and 270 degrees (20, 14, 14, 14 degrees half width).
+- Presentation: FighterAnimator HipCarry pose and hip holder position; launcher guard (Pose.LauncherGuard, launcher level across the chest) and pistol guard; dropped weapons fall and bounce onto the glow ring. HUD: Q/E/R locked without the primary, recharge label +50, crosshair default distance 20 m. Controls text updated for G.
+- Model: Resources/Fighters/Launcher.glb replaced with the new Vex (launcher_final.glb, re-rigged, 17 bones).
+
+### Tests
+rostertest: G tap drops at the feet, hold throws (hits 55), auto pickup, Q/E/R locked unarmed, X +50, Vex guard, 4 rockets per second of clicking, rocket arc peaks above the launch height, direct hit 220, rain 400, walls at the stairs, south pathway, east and west bridges, ring-out still possible between them. All suites pass (unittest, simtest, nettest, beasttest, rostertest).
+
+### Open issues
+- Hip carry and guard placement come from skeleton measurements, not seen in Unity; expect small adjustments.
+- Rapid rockets at 220 each are very strong; a reload or ammo limit may be needed.
+- Bots never throw or drop weapons.
+
+---
+
 ## 2026-11-15: Weapon throw (G), fists, Vex aiming and models, stairs wall, sounds
 
 ### Request (Tanmay)

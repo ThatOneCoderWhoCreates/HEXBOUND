@@ -335,6 +335,13 @@ namespace HEXBOUND.Presentation
                     _sfx.Play(Sfx.WeaponDrop, 0.8f);
                     Burst(pos + Vector3.up * 0.1f, new Color(1.6f, 1.4f, 1.2f), 8, 2.5f, 0.35f);
                     break;
+                case SimEventType.NeedWeapon:
+                    if (e.Fighter == _localIndex)
+                    {
+                        _sfx.Play(Sfx.Denied, 0.7f, 0f);
+                        RaisePopup(pos + Vector3.up * 2.2f, "NEED YOUR WEAPON", new Color(1f, 0.55f, 0.4f), 0.8f);
+                    }
+                    break;
                 case SimEventType.WeaponLost:
                     RaisePopup(pos + Vector3.up * 1.5f, "WEAPON LOST", FighterColor(e.Fighter, 1.2f), 0.9f);
                     break;

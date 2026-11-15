@@ -153,15 +153,17 @@ namespace HEXBOUND.UI
 
         /// <summary>Shows the online round-trip latency in the top-left corner. Pass a negative value to hide it (offline).</summary>
         /// <summary>Crosshair for aimed weapons, at a screen point (pixels). Red when aim assist has the opponent.</summary>
-        public void SetCrosshair(bool show, Vector2 screenPoint, bool onTarget)
+        /// <param name="reload">Fraction of the reload still to go (0 = ready); while reloading the crosshair is dim and wider.</param>
+        public void SetCrosshair(bool show, Vector2 screenPoint, bool onTarget, float reload = 0f)
         {
             if (_crosshair.gameObject.activeSelf != show) _crosshair.gameObject.SetActive(show);
             if (!show) return;
             Vector2 local;
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_rootRect, screenPoint, null, out local)) _crosshair.anchoredPosition = local;
             Color c = onTarget ? new Color(1f, 0.3f, 0.25f, 0.95f) : new Color(1f, 1f, 1f, 0.85f);
+            if (reload > 0f) c = new Color(0.6f, 0.6f, 0.6f, 0.45f);
             for (int i = 0; i < _crosshairParts.Length; i++) _crosshairParts[i].color = c;
-            _crosshair.localScale = Vector3.one * (onTarget ? 0.85f : 1f);
+            _crosshair.localScale = Vector3.one * ((onTarget ? 0.85f : 1f) + reload * 0.6f);
         }
 
         /// <summary>Short hint near the bottom of the screen (for example "G  Pick up weapon"); empty hides it.</summary>
@@ -339,13 +341,23 @@ namespace HEXBOUND.UI
         private void UpdateSlots(ref FighterState f)
         {
             CharacterDef c = GameContent.GetCharacter(f.CharacterId);
-            SetSlot(_slots[0], c.Skill1, f.CooldownSkill1, f.Magic);
-            SetSlot(_slots[1], c.Skill2, f.CooldownSkill2, f.Magic);
-            SetSlot(_slots[2], c.Ultimate, f.CooldownUltimate, f.Magic);
+            // Q, E and R need the primary weapon: shown locked (no weapon) without it.
+            bool locked = c.CanThrowWeapon && (f.WeaponsHeld & 1) == 0;
+            SetSlot(_slots[0], c.Skill1, f.CooldownSkill1, locked ? -1 : f.Magic);
+            SetSlot(_slots[1], c.Skill2, f.CooldownSkill2, locked ? -1 : f.Magic);
+            SetSlot(_slots[2], c.Ultimate, f.CooldownUltimate, locked ? -1 : f.Magic);
+            if (locked)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    _slots[i].Timer.text = "X";
+                    _slots[i].Cooldown.fillAmount = 1f;
+                }
+            }
             SetSlot(_slots[3], c.Recharge, f.CooldownRecharge, int.MaxValue);
             SetSlot(_slots[4], c.Heal, f.CooldownHeal, int.MaxValue);
             SetSlot(_slots[5], c.Dodge, f.CooldownDodge, int.MaxValue);
-            _slots[3].Cost.text = "+30";
+            _slots[3].Cost.text = "+50";
             _slots[4].Cost.text = "+5%";
             _slots[5].Cost.text = string.Empty;
         }

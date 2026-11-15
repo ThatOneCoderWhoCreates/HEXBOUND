@@ -31,6 +31,7 @@ namespace HEXBOUND.Simulation
         Recharge,
         Dodge,
         Heal,
+        Shot,
     }
 
     public enum BuffId : byte

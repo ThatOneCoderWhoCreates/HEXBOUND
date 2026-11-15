@@ -144,6 +144,7 @@ namespace HEXBOUND.Simulation
                 f.CooldownUltimate = 0;
                 f.CooldownRecharge = 0;
                 f.CooldownHeal = 0;
+                f.CooldownShot = 0;
             }
         }
     }

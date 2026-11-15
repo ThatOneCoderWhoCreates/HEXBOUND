@@ -110,9 +110,10 @@ namespace HEXBOUND.Simulation
                 PillarRadius = Fix.Milli(900),
                 PillarHeight = Fix.FromInt(4),
                 PillarHealth = 700,
-                // The gate stairs at the north opening (7.4 m wide): an invisible wall, nobody falls through the stairs.
-                WallCenters = new[] { 0 },
-                WallHalfWidths = new[] { FixMath.FullTurn * 20 / 360 },
+                // Invisible walls where a walkway continues past the edge, so nobody falls through it: the gate stairs
+                // at the north opening (7.4 m wide) and the three bridges at the east, south and west openings (5.8 m wide).
+                WallCenters = new[] { 0, FixMath.HalfTurn / 2, FixMath.HalfTurn, FixMath.HalfTurn * 3 / 2 },
+                WallHalfWidths = new[] { FixMath.FullTurn * 20 / 360, FixMath.FullTurn * 14 / 360, FixMath.FullTurn * 14 / 360, FixMath.FullTurn * 14 / 360 },
                 Spawn0 = new FixVec3(Fix.Zero, Fix.Zero, Fix.FromInt(-5)),
                 Spawn1 = new FixVec3(Fix.Zero, Fix.Zero, Fix.FromInt(5)),
             };

@@ -147,6 +147,9 @@ namespace HEXBOUND.Simulation
             h.Add(f.WeaponsHeld);
             h.Add(f.WeaponsThrown);
             h.Add(f.WeaponsDropped);
+            h.Add(f.PickupReady);
+            h.Add(f.ThrowHold);
+            h.Add(f.ThrowCharged ? 1 : 0);
             h.Add(f.DropPos0);
             h.Add(f.DropPos1);
             h.Add(f.HasAim ? 1 : 0);
@@ -160,6 +163,7 @@ namespace HEXBOUND.Simulation
             h.Add(f.CooldownRecharge);
             h.Add(f.CooldownDodge);
             h.Add(f.CooldownHeal);
+            h.Add(f.CooldownShot);
             h.Add(f.LowGuardStun ? 1 : 0);
             h.Add(f.Awakened ? 1 : 0);
             h.Add(f.WeaponMode);

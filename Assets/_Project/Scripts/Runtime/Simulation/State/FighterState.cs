@@ -59,6 +59,8 @@ namespace HEXBOUND.Simulation
         public int CooldownRecharge;
         public int CooldownDodge;
         public int CooldownHeal;
+        /// <summary>Ticks until the next shot (Vex's rockets).</summary>
+        public int CooldownShot;
 
         /// <summary>True during blockstun that came from the low guard (keeps the low hurtbox).</summary>
         public bool LowGuardStun;
@@ -74,6 +76,11 @@ namespace HEXBOUND.Simulation
         public byte WeaponsThrown;
         /// <summary>Weapons lying on the floor, at DropPos0 / DropPos1 (also the last position while flying).</summary>
         public byte WeaponsDropped;
+        /// <summary>Dropped weapons the fighter has stepped away from; walking back over them picks them up.</summary>
+        public byte PickupReady;
+        /// <summary>Ticks G has been held (released: tap drops, long press throws).</summary>
+        public byte ThrowHold;
+        public bool ThrowCharged;
         public FixVec3 DropPos0;
         public FixVec3 DropPos1;
         /// <summary>Crosshair aim from the input this tick (see InputFrame).</summary>

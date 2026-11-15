@@ -420,7 +420,7 @@ namespace HEXBOUND.Presentation
         public const float PistolLength = 0.25f;
         public const float RocketLength = 0.6f;
         /// <summary>The launcher sits this far forward of its holder, so the shoulder is near its rear and the rear grip is in front of the chest.</summary>
-        public const float LauncherForwardOffset = 0.47f;
+        public const float LauncherForwardOffset = 0.35f;
 
         private static void SetupWeaponVisuals(FighterVisual visual, CharacterDef character, Color accentHdr, Transform sceneParent)
         {

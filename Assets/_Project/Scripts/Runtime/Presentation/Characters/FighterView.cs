@@ -32,6 +32,7 @@ namespace HEXBOUND.Presentation
         private readonly GameObject[] _flying = new GameObject[2];
         private readonly GameObject[] _dropped = new GameObject[2];
         private readonly Material[] _dropGlow = new Material[2];
+        private readonly float[] _dropAge = new float[2];
         private bool _armedShown = true;
 
         public FighterView(CharacterDef character, Transform parent, int index)
@@ -213,8 +214,16 @@ namespace HEXBOUND.Presentation
                 if (dropped)
                 {
                     Vector3 at = ToVector(w == 0 ? f.DropPos0 : f.DropPos1);
-                    if (_dropped[w] == null) _dropped[w] = DroppedVisual(template, w);
-                    _dropped[w].transform.position = at;
+                    if (_dropped[w] == null)
+                    {
+                        _dropped[w] = DroppedVisual(template, w);
+                        _dropAge[w] = 0f;
+                    }
+                    // Falls from hand height and bounces once.
+                    _dropAge[w] += deltaTime;
+                    float a = _dropAge[w];
+                    float fall = a < 0.32f ? 1.0f * (1f - (a / 0.32f) * (a / 0.32f)) : (a < 0.5f ? Mathf.Sin((a - 0.32f) / 0.18f * Mathf.PI) * 0.08f : 0f);
+                    _dropped[w].transform.position = at + Vector3.up * fall;
                     float pulse = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 4f + w);
                     Color c = new Color(Character.ColorR / 255f, Character.ColorG / 255f, Character.ColorB / 255f) * 2.2f * pulse;
                     c.a = 1f;
