@@ -18,6 +18,8 @@ namespace HEXBOUND.Presentation
             public float BodyPitch, BodyYaw, BodyRoll, BodyDrop;
             // Directions in body space used to apply the spine and pelvis (procedural angles are converted to these).
             public Vector3 SpineDir, NeckDir, PelvisUp, PelvisRight;
+            // Staff: which way the staff points (body space) from the hand that grips its center.
+            public Vector3 StaffDir;
         }
 
         private readonly FighterVisual _v;
@@ -158,6 +160,7 @@ namespace HEXBOUND.Presentation
             a.NeckDir = Vector3.Slerp(a.NeckDir, b.NeckDir, k);
             a.PelvisUp = Vector3.Slerp(a.PelvisUp, b.PelvisUp, k);
             a.PelvisRight = Vector3.Slerp(a.PelvisRight, b.PelvisRight, k);
+            a.StaffDir = a.StaffDir.sqrMagnitude < 1e-6f ? b.StaffDir : Vector3.Slerp(a.StaffDir, b.StaffDir, k);
         }
 
         /// <summary>Overlays a motion-capture pose on the procedural one, for the body parts the clip covers.</summary>
@@ -413,18 +416,21 @@ namespace HEXBOUND.Presentation
             {
                 // Staff held in front, tip angled up and forward; the off hand rests near it.
                 float sway = Mathf.Sin(_time * (f.Action == FighterAction.Move ? 9f : 2f)) * 0.05f;
-                p.UpperArmR = V(0.3f, -0.85f + sway, 0.35f);
-                p.ForeArmR = V(0.05f, 0.75f, 0.65f);
+                // Gripped at the center, forearm forward, the staff standing upright beside the body.
+                p.UpperArmR = V(0.3f, -0.85f + sway, 0.3f);
+                p.ForeArmR = V(0.08f, 0.1f, 1f);
+                p.StaffDir = V(0.06f, 1f, 0.12f);
                 p.UpperArmL = V(-0.3f, -0.9f, 0.25f);
                 p.ForeArmL = V(0.15f, -0.4f, 0.9f);
             }
             if (c.HeavyIsGuard && (f.Action == FighterAction.Block || (f.Action == FighterAction.BlockStun && !f.LowGuardStun)))
             {
-                // Guard: the staff held sideways in front of the body with both hands.
-                p.UpperArmR = V(0.55f, -0.45f, 0.7f);
-                p.ForeArmR = V(-1f, 0.12f, 0.2f);
+                // Guard: the staff held sideways across the front of the body, right hand at its center.
+                p.UpperArmR = V(0.3f, -0.45f, 0.85f);
+                p.ForeArmR = V(-0.35f, 0.25f, 0.9f);
+                p.StaffDir = V(-1f, 0.12f, 0.05f);
                 p.UpperArmL = V(-0.45f, -0.4f, 0.8f);
-                p.ForeArmL = V(0.35f, 0.15f, 0.9f);
+                p.ForeArmL = V(0.1f, 0.25f, 0.95f);
                 p.SpinePitch = f.Action == FighterAction.BlockStun ? 2f : 8f;
             }
 
@@ -442,6 +448,14 @@ namespace HEXBOUND.Presentation
             p.NeckDir = Quaternion.Euler(p.SpinePitch, 0f, -p.SpineRoll) * _restNeck;
             p.PelvisUp = _restPelvisUp;
             p.PelvisRight = _restPelvisRight;
+            if (p.StaffDir.sqrMagnitude < 1e-6f)
+            {
+                // Default fist grip: the staff stands at right angles to the forearm, as upright as it can.
+                Vector3 fa = p.ForeArmR.normalized;
+                Vector3 d = Vector3.ProjectOnPlane(Vector3.up, fa);
+                if (d.sqrMagnitude < 0.04f) d = Vector3.ProjectOnPlane(Vector3.forward, fa);
+                p.StaffDir = d.normalized;
+            }
             return p;
         }
 
@@ -784,6 +798,8 @@ namespace HEXBOUND.Presentation
                     float lift = Mathf.Lerp(0.25f, -0.05f, ease);
                     p.UpperArmR = V(Mathf.Sin(theta), lift, Mathf.Cos(theta) + 0.25f);
                     p.ForeArmR = V(Mathf.Sin(theta - 0.35f), lift + 0.05f, Mathf.Cos(theta - 0.35f) + 0.2f);
+                    // Staff: one end leads the swing, the staff lying across the arc.
+                    p.StaffDir = reverse ? V(Mathf.Cos(theta), 0.2f, -Mathf.Sin(theta)) : V(-Mathf.Cos(theta), 0.2f, Mathf.Sin(theta));
                     p.UpperArmL = V(-0.45f, -0.6f, 0.45f);
                     p.ForeArmL = V(0.1f, -0.2f, 0.9f);
                     p.SpineYaw = Mathf.Lerp(reverse ? -35f : 38f, reverse ? 35f : -38f, ease);
@@ -800,6 +816,7 @@ namespace HEXBOUND.Presentation
                     float k = t < start ? wind : 1f - recover * 0.7f;
                     p.UpperArmR = Vector3.Slerp(back, forward, t < start ? 0f : k);
                     p.ForeArmR = Vector3.Slerp(V(0.3f, 0.1f, 0.4f), V(0.03f, 0.05f, 1f), t < start ? 0f : k);
+                    p.StaffDir = Vector3.Slerp(V(0.06f, 1f, 0.12f), V(-0.25f, 0.03f, 1f), t < start ? wind : 1f);
                     p.UpperArmL = V(-0.5f, -0.6f, -0.2f);
                     p.ForeArmL = V(-0.3f, -0.4f, 0.4f);
                     p.SpineYaw = t < start ? 30f : -18f;
@@ -993,8 +1010,50 @@ namespace HEXBOUND.Presentation
                     p.ForeArmR = Vector3.Slerp(V(0.05f, 0.6f, 0.8f), V(0.02f, 0.05f, 1f), k);
                     p.UpperArmL = Vector3.Slerp(V(-0.3f, -0.9f, 0.25f), V(-0.2f, -0.3f, 0.95f), k);
                     p.ForeArmL = Vector3.Slerp(V(0.15f, -0.4f, 0.9f), V(0.35f, 0f, 0.95f), k);
+                    p.StaffDir = Vector3.Slerp(V(0.06f, 1f, 0.12f), V(-0.22f, -0.04f, 1f), k);
                     p.SpinePitch = 26f * k;
                     p.BodyDrop = 0.45f * _restPelvisHeight * k;
+                    break;
+                }
+                case MovePose.Strikes:
+                {
+                    // Three hard thrusts, staff tip forward, each timed to its own hit window.
+                    float ext = 0f;
+                    for (int i = 0; i < m.Hitboxes.Length; i++)
+                    {
+                        int s = m.Hitboxes[i].Start, e = m.Hitboxes[i].End;
+                        float v = t < s - 4 ? 0f : t < s ? (t - (s - 4)) / 4f : t <= e + 1 ? 1f : Mathf.Max(0f, 1f - (t - e - 1) / 3f);
+                        ext = Mathf.Max(ext, v);
+                    }
+                    float settle = t > end ? 1f - recover : 1f;
+                    ext *= settle;
+                    p.UpperArmR = Vector3.Slerp(V(0.45f, -0.4f, -0.2f), V(0.12f, -0.1f, 1f), ext);
+                    p.ForeArmR = Vector3.Slerp(V(0.1f, 0.1f, 1f), V(0.02f, 0.03f, 1f), ext);
+                    p.StaffDir = V(-0.25f, 0.03f, 1f);
+                    p.UpperArmL = V(-0.35f, -0.5f, 0.7f);
+                    p.ForeArmL = V(0.4f, 0.05f, 0.9f);
+                    p.SpineYaw = Mathf.Lerp(28f, -18f, ext) * settle;
+                    p.SpinePitch = 10f * settle;
+                    p.ThighL = V(-0.2f, -1f, 0.4f);
+                    p.ThighR = V(0.22f, -1f, -0.3f);
+                    p.BodyDrop = 0.1f * _restPelvisHeight * settle;
+                    break;
+                }
+                case MovePose.GuardSlide:
+                {
+                    // Slips backward low, staff held sideways in front like the guard.
+                    float k = Mathf.Min(1f, t / 4f) * Mathf.Clamp01((m.Total - t) / 6f);
+                    p.UpperArmR = V(0.3f, -0.45f, 0.85f);
+                    p.ForeArmR = V(-0.35f, 0.25f, 0.9f);
+                    p.StaffDir = V(-1f, 0.12f, 0.05f);
+                    p.UpperArmL = V(-0.45f, -0.4f, 0.8f);
+                    p.ForeArmL = V(0.1f, 0.25f, 0.95f);
+                    p.ThighL = Vector3.Slerp(V(-0.15f, -1f, 0.1f), V(-0.2f, -0.55f, 0.8f), k);
+                    p.CalfL = Vector3.Slerp(V(-0.06f, -1f, -0.05f), V(-0.1f, -1f, -0.25f), k);
+                    p.ThighR = Vector3.Slerp(V(0.15f, -1f, -0.05f), V(0.2f, -0.7f, 0.4f), k);
+                    p.CalfR = Vector3.Slerp(V(0.06f, -1f, -0.1f), V(0.1f, -1f, -0.5f), k);
+                    p.SpinePitch = 18f * k;
+                    p.BodyDrop = 0.4f * _restPelvisHeight * k;
                     break;
                 }
                 case MovePose.Shoot:
@@ -1080,6 +1139,11 @@ namespace HEXBOUND.Presentation
             PoseRig.Aim(rig.CalfL, rig.FootL, body.TransformDirection(p.CalfL));
             PoseRig.Aim(rig.ThighR, rig.CalfR, body.TransformDirection(p.ThighR));
             PoseRig.Aim(rig.CalfR, rig.FootR, body.TransformDirection(p.CalfR));
+
+            if (_v.WeaponHolder != null && p.StaffDir.sqrMagnitude > 1e-6f)
+            {
+                _v.WeaponHolder.rotation = Quaternion.FromToRotation(Vector3.up, body.TransformDirection(p.StaffDir.normalized));
+            }
         }
 
         private static Quaternion Frame(Vector3 up, Vector3 right)

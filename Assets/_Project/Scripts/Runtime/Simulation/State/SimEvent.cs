@@ -31,6 +31,10 @@ namespace HEXBOUND.Simulation
         /// <summary>A missile exploded (Param = projectile definition id).</summary>
         Explosion,
         WeaponSwitch,
+        /// <summary>A breakable pillar was struck (Param = pillar index).</summary>
+        PillarHit,
+        /// <summary>A breakable pillar broke and fell apart (Param = pillar index).</summary>
+        PillarBreak,
     }
 
     /// <summary>Something that happened during a tick, for visuals and audio. Not part of the game state.</summary>

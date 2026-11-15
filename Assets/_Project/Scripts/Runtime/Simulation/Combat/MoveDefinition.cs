@@ -201,5 +201,9 @@ namespace HEXBOUND.Simulation
         Shoot,
         /// <summary>Low forward slide with the weapon tip leading.</summary>
         Lunge,
+        /// <summary>Slide back with the weapon held sideways as a guard.</summary>
+        GuardSlide,
+        /// <summary>Several quick thrusts in a row, one per hitbox.</summary>
+        Strikes,
     }
 }

@@ -67,6 +67,8 @@ namespace HEXBOUND.Simulation
         public string WeaponModel = string.Empty;
         /// <summary>Right mouse is a guard (the staff held sideways) instead of a heavy attack on the ground.</summary>
         public bool HeavyIsGuard;
+        /// <summary>C + right mouse starts this move instead of the low guard (the mage's guard slide). Null keeps the low guard.</summary>
+        public MoveDef CrouchGuardMove;
         /// <summary>Moves used with the secondary weapon (null keeps the primary move).</summary>
         public MoveDef[] AltLightChain;
         public MoveDef AltHeavy;

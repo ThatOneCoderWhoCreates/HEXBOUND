@@ -223,6 +223,7 @@ namespace HEXBOUND.Simulation
             if (f.CooldownRecharge > 0) f.CooldownRecharge--;
             if (f.CooldownDodge > 0) f.CooldownDodge--;
             if (f.CooldownHeal > 0) f.CooldownHeal--;
+            if (f.ComboGrace > 0) f.ComboGrace--;
             if (f.InvulnTicks > 0) f.InvulnTicks--;
             if (f.RehitTimer > 0) f.RehitTimer--;
             if (f.Buff == BuffId.Levitate && !s.Setup.InfiniteMagic && s.Tick % GameConfig.FlightDrainEvery != 0)
@@ -464,6 +465,11 @@ namespace HEXBOUND.Simulation
                     move = c.Grab;
                     break;
                 case InputButtons.Heavy:
+                    if (!air && input.Held(InputButtons.Crouch) && c.CrouchGuardMove != null)
+                    {
+                        move = c.CrouchGuardMove;
+                        break;
+                    }
                     if (!air && input.Held(InputButtons.Crouch) && c.CrouchAttack != null)
                     {
                         // C + right mouse is the low guard, handled as a held state.
@@ -495,6 +501,11 @@ namespace HEXBOUND.Simulation
                         {
                             comboStep = f.ComboStep + 1;
                             if (comboStep >= chain.Length) return false;
+                        }
+                        else if (!fromCancel && f.ComboGrace > 0 && f.ComboStep + 1 < chain.Length)
+                        {
+                            // Pressed shortly after the previous combo hit finished: continue the combo.
+                            comboStep = f.ComboStep + 1;
                         }
                         move = chain[comboStep];
                     }
@@ -587,9 +598,11 @@ namespace HEXBOUND.Simulation
         private static void StartMove(GameState s, int index, ref FighterState f, CharacterDef c, MoveDef move, int comboStep, InputFrame input, ref FighterState opp, EventBuffer ev)
         {
             SetAction(ref f, FighterAction.Attack);
+            f.ComboGrace = 0;
             f.MoveId = move.Id;
             f.MoveTick = -1;
             f.HitMask = 0;
+            f.PillarHitMask = 0;
             f.RehitTimer = 0;
             f.ComboStep = comboStep;
 
@@ -716,6 +729,20 @@ namespace HEXBOUND.Simulation
             }
         }
 
+        private static bool IsChainMove(CharacterDef c, int moveId)
+        {
+            MoveDef[][] chains = { c.LightChain, c.BuffLightChain, c.AltLightChain };
+            foreach (MoveDef[] chain in chains)
+            {
+                if (chain == null) continue;
+                for (int i = 0; i < chain.Length; i++)
+                {
+                    if (chain[i] != null && chain[i].Id == moveId) return true;
+                }
+            }
+            return false;
+        }
+
         private static bool HasVerticalMotion(MoveDef m, int t)
         {
             for (int i = 0; i < m.Motions.Length; i++)
@@ -727,6 +754,9 @@ namespace HEXBOUND.Simulation
 
         private static void EndMove(ref FighterState f)
         {
+            // A finished combo hit leaves a short window to continue the combo.
+            CharacterDef c = GameContent.GetCharacter(f.CharacterId);
+            f.ComboGrace = IsChainMove(c, f.MoveId) ? GameConfig.ComboGraceTicks : 0;
             f.MoveId = -1;
             f.MoveTick = 0;
             bool flying = f.Buff == BuffId.Levitate;

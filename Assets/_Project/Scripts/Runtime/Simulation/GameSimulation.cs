@@ -10,6 +10,7 @@ namespace HEXBOUND.Simulation
         {
             s.Tick = 0;
             s.Setup = setup;
+            Arena.Use(setup.Map);
             s.Rng = setup.Seed == 0 ? 1u : setup.Seed;
             s.Round = 1;
             s.Wins0 = 0;
@@ -29,6 +30,8 @@ namespace HEXBOUND.Simulation
 
         public static void Tick(GameState s, InputFrame input0, InputFrame input1, EventBuffer ev)
         {
+            Arena.Use(s.Setup.Map);
+            Arena.SetBroken(Arena.BrokenMask(s));
             s.Tick++;
             if (s.Phase == MatchPhase.MatchOver)
             {

@@ -4,6 +4,90 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-15: Breakable crystal pillars
+
+### Request (Tanmay)
+If you keep attacking a crystal it should break and fall apart; about 700 health.
+
+### Changes
+- Simulation: ArenaLayout.PillarHealth (Sanctuary 700, Lava 0 = unbreakable). GameState.PillarHealth per pillar (copied for rollback, in the checksum), reset in StartRound. FighterState.PillarHitMask so each hitbox group hits a pillar once per move. CombatResolver.DamagePillar (melee), ProjectileLogic (projectile impact; blasts chip pillars in their radius). Broken pillars stop blocking movement and projectiles (Arena.SetBroken from the state every tick). New events PillarHit and PillarBreak.
+- Presentation: crystals dim, shake and show a health bar when hit; on break they shatter into bouncing shards (shards past the edge fall away), leaving a dull stub; whole again next round. Sounds and bursts in EffectsPlayer.
+
+### Tests
+rostertest: Rook's jabs break a crystal in 19 hits (about 8 s), broken crystal no longer blocks, other crystals untouched, lava spikes cannot break. nettest on the Sanctuary: no desync.
+
+### Open issues
+- In Training there are no rounds, so a broken crystal stays broken until the match restarts.
+
+---
+
+## 2026-11-15: Arcane crystal model, clearer air over the battlefield
+
+### Request (Tanmay)
+Add the arcane crystal (last Modly piece). The map looks a little foggy; fog is fine outside the battlefield but not inside.
+
+### Changes
+- ArcaneCrystal.glb: reduced from 554k to 16k triangles; the purple shards use a glowing material (emissive strength 2.2), the rock base does not. Scaled to about 2.7 m across so it matches the pillar's solid area; the crystal light and sparkles stay.
+- Sanctuary atmosphere: fog now starts at 110 m (was 60 m) and ends at 520 m, so the courtyard, terrace and gate are clear and only far scenery is hazy. Bloom softer (intensity 0.6, threshold 1.15, scatter 0.55), no extra exposure, more contrast, less lavender ambient light.
+
+---
+
+## 2026-11-15: Modly models for the Celestial Sanctuary
+
+### Request (Tanmay)
+Use the Modly models for the map: temple gate, cherry tree, floating island, celestial arch, waterfall cliff, shrine lantern, purple banner, stone pillar. Crystals come later.
+
+### Changes
+- Tools/ModlyPrep: reduces each export (137k to 724k triangles) to 8k to 80k triangles, keeps Modly's vertex colors, and gives the lantern's lamp faces a glowing material. Output in Resources/Arena/Sanctuary/Models.
+- ArenaView.Sanctuary: Banner models hang from the swaying banner pivots; StonePillar adds six pillars at the outer bridge ends; WaterfallCliff adds four cliffs rising from the clouds; the gate portal glow moves into the Modly gate's archway. Gate, trees, lanterns, arch and far islands use the existing replacement slots.
+- Credits: item 8, Celestial Sanctuary map (Pixtel Studios, made with Modly); KinemIQ is now item 9.
+
+### Open issues
+- ArcaneCrystal model pending (built-in crystals stay until then).
+- Placement checked only with offline renders.
+
+---
+
+## 2026-11-15: Celestial Sanctuary map
+
+### Request (Tanmay)
+Add a map like the Celestial Sanctuary concept board instead of lava. Decisions: keep lava and add the Sanctuary as a second map with a map choice; round floor about the current size with four crystal pillars; Tanmay will make Modly models for the key pieces later, the rest is built in code.
+
+### Changes
+- Simulation: Arena now holds one ArenaLayout per map (edge table, pillars, pillar radius and height, spawns). MatchSetup.Map selects it; GameSimulation calls Arena.Use(map) on Initialize and every Tick. Sanctuary: radius 12, four pillars at (+-4.95, +-4.95), radius 0.9, height 4. Map is in GameState.Checksum and all layouts are in the content hash.
+- Netcode: the Start message carries the map byte (protocol version 3); NetMatch.Map is the host's choice.
+- Presentation: ArenaView is partial and rebuilds on SetMap. New ArenaView.Sanctuary.cs: loads Resources/Arena/Sanctuary/Sanctuary.glb, swaps in optional Modly models (FitReplace by height or size), adds the rune circle (Rune.png), edge line, crystal pillars with lights and sparkles, gate portal, waterfalls (from Anchor_Waterfall_* nodes), far floating islands, cloud sea, petals, banner sway, panoramic sky (Skybox/Panoramic, kept in builds by a new ShaderKeep material), lighting, fog and post-processing. Ring-out effect is a cloud puff on this map.
+- UI and app: MAP button on the select screen (GameSettings.Map); camera background follows the map (skybox or color).
+- Tools/SanctuaryBuilder: Python scripts that generate Sanctuary.glb (about 149k triangles) and its textures.
+
+### Tests
+unittest, simtest, nettest (all online runs on map 1, both sides), beasttest pass. rostertest adds: sanctuary map selected with four pillars, 12 m edge, pillar is solid, deterministic and different from lava, old setups still lava.
+
+### Open issues
+- The scene was checked only with rough offline renders; lighting, fog and cloud density need a look in Unity.
+- Waiting for Modly models (gate, cherry tree, floating island, stone ring first).
+
+---
+
+## 2026-11-15: Dragon Mage revision (center grip, new slides, Triple Strike, combo timing)
+
+### Request (Tanmay)
+Hold the staff at its center. Replace Shockwave: C + left click a normal slide, C + right click a defensive slide, the strong slide on E. Replace Flurry with a clear triple attack. Combo order left, right, center, with more time allowed between clicks.
+
+### Changes
+- StaffFighter: Q Triple Strike (replaces Flurry), E Dragon Slide (replaces Shockwave), C + left mouse Slide, C + right mouse Guard Slide (new CharacterDef.CrouchGuardMove), combo cancel windows extended to the end of each swing.
+- Combo grace for every fighter: FighterState.ComboGrace (in the checksum), MatchRules.ComboGraceTicks = 30. A light attack within 30 ticks after a combo hit ends continues the combo.
+- MovePose: Strikes, GuardSlide.
+- Presentation: staff grip at 50% of its length; FighterVisual.WeaponHolder turned each frame from a new Pose.StaffDir (upright idle, sideways guard, swings lead with one end, thrusts and slides point the tip forward); a swipe trail on each end of the staff.
+
+### Tests
+unittest 20/20, simtest, nettest, beasttest pass. rostertest adds: E slide 7.3 m and 80 damage, guard slide backs 3.7 m with no damage taken, Triple Strike hits 3 times, combo continues after a short pause and restarts after a long one.
+
+### Open issues
+- The staff direction in each pose is hand-tuned; check it in game and report any pose that looks wrong.
+
+---
+
 ## 2026-11-15: Bram becomes the Dragon Mage (new model, staff, moves, golden dragon)
 
 ### Request (Tanmay)

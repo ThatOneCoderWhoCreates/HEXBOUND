@@ -84,8 +84,10 @@ namespace HEXBOUND.UI
             "Source: https://skfb.ly/pzYyM\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
+            "<b>8. Celestial Sanctuary map</b>\n" +
+            "Concept, layout and models by Pixtel Studios, models made with Modly.\n\n" +
             "<b>ANIMATIONS</b>\n\n" +
-            "<b>8. KinemIQ Animation Library</b>\n" +
+            "<b>9. KinemIQ Animation Library</b>\n" +
             "Source: https://kinemiq.app/\n" +
             "Licence: Depends on the individual animation used.\n" +
             "Attribution: Required for animations licensed under CC BY.\n" +

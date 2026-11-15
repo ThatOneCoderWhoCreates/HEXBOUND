@@ -46,6 +46,7 @@ namespace HEXBOUND.Simulation
                 {
                     HitboxDef hb = m.Hitboxes[i];
                     if (t < hb.Start || t > hb.End) continue;
+                    StrikePillars(s, a, ref attacker, hb, ev);
                     int bit = 1 << hb.Group;
                     if (hb.RehitInterval > 0)
                     {
@@ -148,6 +149,37 @@ namespace HEXBOUND.Simulation
             for (int i = 0; i < count; i++)
             {
                 Apply(s, ref pending[i], ev);
+            }
+        }
+
+        /// <summary>A melee hitbox chips any standing breakable pillar it touches, once per hitbox group per move.</summary>
+        private static void StrikePillars(GameState s, int a, ref FighterState attacker, HitboxDef hb, EventBuffer ev)
+        {
+            if (Arena.Layout(s.Setup.Map).PillarHealth <= 0) return;
+            FixVec3 center = attacker.Position + FixVec3.FromAngle(attacker.Facing) * hb.Forward + FixVec3.Up * hb.Up;
+            int pillar = Arena.PillarAt(center, hb.Radius);
+            if (pillar < 0) return;
+            int bit = 1 << (pillar * 8 + (hb.Group & 7));
+            if ((attacker.PillarHitMask & bit) != 0) return;
+            attacker.PillarHitMask |= bit;
+            DamagePillar(s, pillar, hb.Damage, a, ev);
+        }
+
+        /// <summary>Takes health from a breakable pillar; at 0 it breaks and stops blocking.</summary>
+        public static void DamagePillar(GameState s, int pillar, int damage, int attacker, EventBuffer ev)
+        {
+            if (pillar < 0 || pillar >= s.PillarHealth.Length || s.PillarHealth[pillar] <= 0 || damage <= 0) return;
+            s.PillarHealth[pillar] -= damage;
+            FixVec3 at = Arena.Pillars[pillar] + FixVec3.Up * Fix.FromInt(1);
+            if (s.PillarHealth[pillar] <= 0)
+            {
+                s.PillarHealth[pillar] = 0;
+                Arena.SetBroken(Arena.BrokenMask(s));
+                if (ev != null) ev.Add(s.Tick, SimEventType.PillarBreak, attacker, pillar, at);
+            }
+            else if (ev != null)
+            {
+                ev.Add(s.Tick, SimEventType.PillarHit, attacker, pillar, at);
             }
         }
 

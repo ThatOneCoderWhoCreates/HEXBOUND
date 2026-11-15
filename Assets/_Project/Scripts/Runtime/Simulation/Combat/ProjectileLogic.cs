@@ -72,6 +72,20 @@ namespace HEXBOUND.Simulation
             p.Active = false;
             p.Exploding = true;
             if (ev != null) ev.Add(s.Tick, SimEventType.Explosion, p.Owner, p.DefId, p.Position);
+            ProjectileDef def = GameContent.Projectiles[p.DefId];
+            if (Arena.Layout(s.Setup.Map).PillarHealth <= 0 || def.ExplodeRadius <= Fix.Zero) return;
+            // The blast chips every standing pillar inside its radius.
+            for (int i = 0; i < Arena.Pillars.Length; i++)
+            {
+                if (Arena.IsBroken(i)) continue;
+                Fix dx = p.Position.X - Arena.Pillars[i].X;
+                Fix dz = p.Position.Z - Arena.Pillars[i].Z;
+                Fix reach = def.ExplodeRadius + Arena.PillarRadius;
+                if (dx * dx + dz * dz < reach * reach && p.Position.Y <= Arena.PillarHeight + def.ExplodeRadius)
+                {
+                    CombatResolver.DamagePillar(s, i, def.ExplodeDamage, p.Owner, ev);
+                }
+            }
         }
 
         public static void Step(GameState s, EventBuffer ev)
@@ -84,7 +98,9 @@ namespace HEXBOUND.Simulation
                 p.Velocity.Y = p.Velocity.Y - def.Gravity;
                 p.Position = p.Position + p.Velocity;
                 p.TicksLeft--;
-                bool hitFloor = (p.Position.Y < Fix.Zero && Arena.IsInside(p.Position)) || Arena.HitsPillar(p.Position, def.Radius);
+                int pillar = Arena.PillarAt(p.Position, def.Radius);
+                bool hitFloor = (p.Position.Y < Fix.Zero && Arena.IsInside(p.Position)) || pillar >= 0;
+                if (pillar >= 0 && def.ExplodeRadius <= Fix.Zero && Arena.Layout(s.Setup.Map).PillarHealth > 0) CombatResolver.DamagePillar(s, pillar, def.Damage, p.Owner, ev);
                 if (p.TicksLeft <= 0 || hitFloor || p.Position.Y < GameConfig.RingOutHeight)
                 {
                     p.Active = false;

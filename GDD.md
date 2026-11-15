@@ -162,3 +162,24 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 - Vex: missile launcher and pistol, swapped with the mouse wheel (gamepad D-pad right). Missiles explode where they land (splash). Q Cluster Missile, E Rocket Jump (shoots the floor, flies up, blast hurts nearby enemies, never Vex), R Missile Rain. Right click in the air shoots down for a small lift.
 - Versus Bot difficulty: Easy (old bot), Normal and Hard (learning brain at level 3 and 9, learns during the match only).
 - Arcade: beat the other four fighters in a random order, each sharper than the last, then the Beast. Losing lets you retry the stage.
+
+## Update 2026-11-15: Bram, the Dragon Mage (revised)
+
+- Staff gripped at its center. Idle: staff upright. Right mouse (hold): guard, staff held sideways in front.
+- Left mouse combo: left swing, right swing, center thrust that pushes the enemy away. After a combo hit ends, the next click still continues the combo for 0.5 seconds (all fighters).
+- C + left mouse: Slide (45 damage, about 3.6 m, low, beats a standing block).
+- C + right mouse: Guard Slide. Slips about 3.7 m backward, staff up; attacks pass through it. Holding C + right mouse afterward keeps the low guard.
+- Q Triple Strike [120]: three fast staff thrusts (38, 38, 55 before combo scaling); the last knocks back. 6 s cooldown.
+- E Dragon Slide [120]: long, fast slide (about 7 m, 80 damage, low, launches). 5 s cooldown.
+- R Golden Dragon [300]: a translucent golden dragon flies straight ahead (150 damage plus a 60 damage burst, passes through projectiles).
+
+## Update 2026-11-15: Celestial Sanctuary map
+
+- Second arena, picked with the MAP button on the character select screen (saved between sessions; default Celestial Sanctuary). Online, the host's map is used. Arcade and Fight the Beast use the chosen map.
+- A floating stone courtyard above a sea of clouds, based on the Celestial Sanctuary concept board. Round fighting floor, 12 m playable radius (about the size of the Lava Pit). Past the gold edge line, fighters fall into the clouds (ring-out).
+- Four crystal pillars on the diagonals, 7 m from the center, block movement and projectiles up to 4 m high (cover).
+- Scenery: temple gate on a terrace up the north stairs, bridges east, south and west to an outer garden ring with cherry trees, floating cliffs with pagodas and waterfalls, a broken stone ring in the sky, distant mountains and floating islands.
+- Effects: rotating gold rune circle, glowing crystals, gate portal, swaying banners, falling petals, drifting clouds, panoramic sky.
+- Optional Modly models (TempleGate, CherryTree, CelestialArch, Lantern, FloatingIsland, ArcaneCrystal) in Resources/Arena/Sanctuary/Models replace the built-in pieces.
+
+- Breakable crystals (Sanctuary): each crystal pillar has 700 health. Melee hits (once per hit), projectiles and blasts chip it; a health bar shows for a few seconds after each hit and the crystal dims and shakes. At 0 it shatters, stops blocking and leaves a stub. All crystals are whole again at the start of every round. Lava Pit spikes cannot break.

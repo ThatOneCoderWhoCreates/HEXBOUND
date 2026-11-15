@@ -40,6 +40,7 @@ namespace HEXBOUND.Editor
             Keep("Unlit_Opaque", "Universal Render Pipeline/Unlit", false, false);
             Keep("Unlit_Additive", "Universal Render Pipeline/Unlit", false, true);
             Keep("Particles_Additive", "Universal Render Pipeline/Particles/Unlit", false, true);
+            Keep("Skybox_Panoramic", "Skybox/Panoramic", false, false);
             AssetDatabase.SaveAssets();
         }
 

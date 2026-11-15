@@ -30,6 +30,8 @@ namespace HEXBOUND.Simulation
         public const int GetUpInvuln = 20;
 
         public const int InputBufferTicks = 10;
+        /// <summary>After a combo hit ends, a light attack within this many ticks still continues the combo.</summary>
+        public const int ComboGraceTicks = 30;
 
         /// <summary>A crouching fighter is not hit by attacks centered above this fraction of its height (percent).</summary>
         public const int CrouchDuckPercent = 62;
@@ -87,5 +89,7 @@ namespace HEXBOUND.Simulation
         public bool InfiniteMagic;
         /// <summary>Beast mode: the beast's level (0-10). Its hits deal 75% damage at level 0, rising to 115% at level 10.</summary>
         public int BeastLevel;
+        /// <summary>Which arena (Arena.MapLava or Arena.MapSanctuary). Online, the host's choice is used.</summary>
+        public int Map;
     }
 }

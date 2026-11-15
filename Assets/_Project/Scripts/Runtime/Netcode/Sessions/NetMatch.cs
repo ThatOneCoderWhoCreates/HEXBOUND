@@ -41,6 +41,9 @@ namespace HEXBOUND.Netcode
         public int LocalCharacter { get; private set; }
         public bool LocalReady { get; private set; }
         public int RemoteCharacter { get; private set; } = -1;
+
+        /// <summary>Host only: the arena to play on (Arena.MapLava or Arena.MapSanctuary), sent in the start message.</summary>
+        public int Map { get; set; } = Arena.MapSanctuary;
         public bool RemoteReady { get; private set; }
 
         public RollbackSession Session { get; private set; }
@@ -275,11 +278,13 @@ namespace HEXBOUND.Netcode
                 Character1 = RemoteCharacter,
                 Seed = _seedCounter == 0 ? 1u : _seedCounter,
                 Mode = MatchMode.Versus,
+                Map = Map,
             };
             PacketWriter w = _writer.Begin(Protocol.Start);
             w.WriteUInt(setup.Seed);
             w.WriteByte((byte)setup.Character0);
             w.WriteByte((byte)setup.Character1);
+            w.WriteByte((byte)setup.Map);
             _transport.SendReliable(w.Buffer, w.Length);
             BeginMatch(setup);
         }
@@ -293,7 +298,9 @@ namespace HEXBOUND.Netcode
                 Character1 = r.ReadByte(),
                 Mode = MatchMode.Versus,
             };
+            setup.Map = r.ReadByte();
             if (r.Failed) return;
+            if (setup.Map >= Arena.MapCount) setup.Map = 0;
             BeginMatch(setup);
         }
 

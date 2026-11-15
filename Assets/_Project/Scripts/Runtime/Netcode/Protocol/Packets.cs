@@ -5,7 +5,7 @@ namespace HEXBOUND.Netcode
     public static class Protocol
     {
         /// <summary>Bump when the packet format or simulation rules change in an incompatible way.</summary>
-        public const int Version = 2;
+        public const int Version = 3;
 
         public const byte Hello = 1;
         public const byte CharacterSelect = 2;

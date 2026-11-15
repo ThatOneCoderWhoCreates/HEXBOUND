@@ -25,6 +25,8 @@ namespace HEXBOUND.Presentation
         /// <summary>Glowing swipe trails on the striking hand / weapon tip, shown during attacks.</summary>
         public TrailRenderer TrailR;
         public TrailRenderer TrailL;
+        /// <summary>Staff: the holder in the right hand; the animator turns it each frame so the staff points where the pose wants.</summary>
+        public Transform WeaponHolder;
         /// <summary>Beast: fire blasting from the shoulder exhausts while it is awakened.</summary>
         public GameObject ExhaustFire;
         public Renderer[] Renderers;
@@ -352,7 +354,7 @@ namespace HEXBOUND.Presentation
 
         /// <summary>World length of the mage's staff, and where along it the hand grips (fraction from the butt).</summary>
         private const float StaffWorldLength = 1.9f;
-        private const float StaffGrip = 0.2f;
+        private const float StaffGrip = 0.5f;
 
         /// <summary>
         /// Puts a weapon model (Resources/Fighters/&lt;WeaponModel&gt;, a staff modeled along +Y) in the right hand,
@@ -393,7 +395,27 @@ namespace HEXBOUND.Presentation
             weapon.transform.localRotation = Quaternion.identity;
             // Grip point (StaffGrip of the length from the butt) sits in the hand.
             weapon.transform.localPosition = new Vector3(0f, -(local.min.y + modelLength * StaffGrip) * scale / lossy, 0f);
+            visual.WeaponHolder = holder;
             return StaffWorldLength * (1f - StaffGrip) * 0.95f;
+        }
+
+        private static TrailRenderer MakeEndTrail(Transform holder, float worldOffset, Color accentHdr)
+        {
+            var go = new GameObject("Staff End Trail");
+            go.transform.SetParent(holder, false);
+            float lossy = Mathf.Max(holder.lossyScale.x, 1e-4f);
+            go.transform.localPosition = new Vector3(0f, worldOffset / lossy, 0f);
+            TrailRenderer trail = go.AddComponent<TrailRenderer>();
+            trail.time = 0.14f;
+            trail.minVertexDistance = 0.04f;
+            trail.startWidth = 0.12f;
+            trail.endWidth = 0f;
+            Color c = accentHdr * 0.55f;
+            c.a = 0.85f;
+            trail.sharedMaterial = MaterialFactory.Additive(c);
+            trail.shadowCastingMode = ShadowCastingMode.Off;
+            trail.emitting = false;
+            return trail;
         }
 
         private static TrailRenderer MakeTrail(Transform hand, Transform forearm, float worldReach, Color accentHdr, float width)
@@ -474,7 +496,13 @@ namespace HEXBOUND.Presentation
             }
 
             // Swipe trails: from the weapon tip (sword, staff) or the fists.
-            if (rig.HandR != null && rig.ForeArmR != null && character.SecondaryWeapon == null)
+            if (visual.WeaponHolder != null)
+            {
+                // Staff held at the center: a trail on each end.
+                visual.TrailR = MakeEndTrail(visual.WeaponHolder, weaponReach, accentHdr);
+                visual.TrailL = MakeEndTrail(visual.WeaponHolder, -weaponReach, accentHdr);
+            }
+            else if (rig.HandR != null && rig.ForeArmR != null && character.SecondaryWeapon == null)
             {
                 float reach = weaponReach > 0f ? weaponReach : character.Weapon == "Sword" ? 1.0f : character.Weapon == "Staff" ? 1.1f : character.Weapon == "Wand" ? 0.45f : 0.12f;
                 visual.TrailR = MakeTrail(rig.HandR, rig.ForeArmR, reach, accentHdr, character.Weapon == "Fists" || character.Stance == FighterStance.Beast ? 0.18f : 0.12f);

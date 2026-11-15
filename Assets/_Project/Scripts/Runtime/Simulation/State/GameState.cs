@@ -46,6 +46,9 @@ namespace HEXBOUND.Simulation
         public readonly FighterState[] Fighters = new FighterState[2];
         public readonly ProjectileState[] Projectiles = new ProjectileState[MaxProjectiles];
 
+        /// <summary>Health of each breakable pillar (crystal) this round; 0 = broken. Unused on maps whose pillars cannot break.</summary>
+        public readonly int[] PillarHealth = new int[Arena.MaxPillars];
+
         /// <summary>Ticks since each fighter was last hit (training refill).</summary>
         public int QuietTicks0;
         public int QuietTicks1;
@@ -69,6 +72,7 @@ namespace HEXBOUND.Simulation
             QuietTicks1 = other.QuietTicks1;
             Array.Copy(other.Fighters, Fighters, Fighters.Length);
             Array.Copy(other.Projectiles, Projectiles, Projectiles.Length);
+            Array.Copy(other.PillarHealth, PillarHealth, PillarHealth.Length);
         }
 
         public GameState Clone()
@@ -88,6 +92,7 @@ namespace HEXBOUND.Simulation
         {
             var h = new StateHasher();
             h.Add(Tick);
+            h.Add(Setup.Map);
             h.Add((int)Phase);
             h.Add(PhaseTicks);
             h.Add(RoundTicksLeft);
@@ -101,6 +106,7 @@ namespace HEXBOUND.Simulation
             h.Add(NextProjectileSerial);
             h.Add(QuietTicks0);
             h.Add(QuietTicks1);
+            for (int i = 0; i < PillarHealth.Length; i++) h.Add(PillarHealth[i]);
             for (int i = 0; i < Fighters.Length; i++)
             {
                 AddFighter(ref h, ref Fighters[i]);
@@ -136,6 +142,7 @@ namespace HEXBOUND.Simulation
             h.Add(f.MoveDirection);
             h.Add(f.ComboStep);
             h.Add(f.HitMask);
+            h.Add(f.PillarHitMask);
             h.Add(f.RehitTimer);
             h.Add(f.CooldownSkill1);
             h.Add(f.CooldownSkill2);
@@ -146,6 +153,7 @@ namespace HEXBOUND.Simulation
             h.Add(f.LowGuardStun ? 1 : 0);
             h.Add(f.Awakened ? 1 : 0);
             h.Add(f.WeaponMode);
+            h.Add(f.ComboGrace);
             h.Add((int)f.Buff);
             h.Add(f.BuffTicks);
             h.Add(f.StunTicks);

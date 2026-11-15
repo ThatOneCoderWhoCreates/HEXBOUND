@@ -12,6 +12,9 @@ namespace HEXBOUND.Simulation
             s.LastRoundEnd = RoundEndReason.None;
             s.QuietTicks0 = 0;
             s.QuietTicks1 = 0;
+            ArenaLayout layout = Arena.Layout(s.Setup.Map);
+            for (int i = 0; i < s.PillarHealth.Length; i++) s.PillarHealth[i] = i < layout.Pillars.Length ? layout.PillarHealth : 0;
+            Arena.SetBroken(Arena.BrokenMask(s));
             FighterLogic.ResetForRound(ref s.Fighters[0], 0);
             FighterLogic.ResetForRound(ref s.Fighters[1], 1);
             for (int i = 0; i < s.Projectiles.Length; i++)

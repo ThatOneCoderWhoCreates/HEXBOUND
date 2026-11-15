@@ -36,6 +36,7 @@ namespace HEXBOUND.UI
         public event Action InfiniteMagicClicked;
         public event Action ResetBeastClicked;
         public event Action DifficultyClicked;
+        public event Action MapClicked;
         /// <summary>Raised when the selected fighter changes (to update the preview).</summary>
         public event Action<int> PlayerChanged;
 
@@ -54,6 +55,7 @@ namespace HEXBOUND.UI
         private readonly Button _infiniteButton;
         private readonly Button _resetBeastButton;
         private readonly Button _difficultyButton;
+        private readonly Button _mapButton;
         private readonly Text _beastInfo;
         private readonly Text _detailName;
         private readonly Text _detailText;
@@ -120,6 +122,7 @@ namespace HEXBOUND.UI
             _infiniteButton = UIFactory.Button(root, "INFINITE MAGIC: OFF", new Vector2(220, -372), new Vector2(460, 60), () => InfiniteMagicClicked?.Invoke(), 24);
             _resetBeastButton = UIFactory.Button(root, "RESET BEAST", new Vector2(0, -372), new Vector2(360, 60), () => ResetBeastClicked?.Invoke(), 24);
             _difficultyButton = UIFactory.Button(root, "DIFFICULTY: NORMAL", new Vector2(0, -372), new Vector2(460, 60), () => DifficultyClicked?.Invoke(), 24);
+            _mapButton = UIFactory.Button(root, "MAP: CELESTIAL SANCTUARY", new Vector2(690, -372), new Vector2(440, 60), () => MapClicked?.Invoke(), 22);
 
             _status = UIFactory.Label(root, string.Empty, 28, new Color(1f, 0.85f, 0.5f), TextAnchor.MiddleCenter, new Vector2(0, -300), new Vector2(1600, 50));
             UIFactory.Button(root, "BACK", new Vector2(-260, -460), new Vector2(320, 72), () => Back?.Invoke());
@@ -181,6 +184,13 @@ namespace HEXBOUND.UI
         {
             UIFactory.SetButtonLabel(_botModeButton, "BOT: " + botMode.ToUpperInvariant());
             UIFactory.SetButtonLabel(_infiniteButton, "INFINITE MAGIC: " + (infiniteMagic ? "ON" : "OFF"));
+        }
+
+        /// <summary>Map button label; not clickable when the other player picks the map.</summary>
+        public void SetMap(string mapName, bool clickable)
+        {
+            UIFactory.SetButtonLabel(_mapButton, "MAP: " + mapName.ToUpperInvariant());
+            _mapButton.interactable = clickable;
         }
 
         public void SetDifficulty(string difficulty)

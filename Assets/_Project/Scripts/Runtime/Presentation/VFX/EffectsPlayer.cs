@@ -379,7 +379,31 @@ namespace HEXBOUND.Presentation
                     _sfx.Play(Sfx.Ko, 1f, 0f);
                     RaiseShake(1f);
                     break;
+                case SimEventType.PillarHit:
+                    Burst(pos, new Color(1.6f, 0.8f, 3f), 8, 4f, 0.45f);
+                    Flash(pos, new Color(1.6f, 0.8f, 3f), 0.15f, 0.4f, 1.4f);
+                    _sfx.Play(Sfx.Clash, 0.45f, 0f);
+                    break;
+                case SimEventType.PillarBreak:
+                    Flash(pos, new Color(3f, 1.6f, 5f), 0.35f, 1f, 5f);
+                    Ring(pos - Vector3.up * 0.9f, new Color(2f, 1f, 3.5f), 0.6f, 0.5f, 6f);
+                    Burst(pos, new Color(1.8f, 0.9f, 3.2f), 40, 8f, 0.9f);
+                    _sfx.Play(Sfx.GuardBreak, 1f, 0f);
+                    _sfx.Play(Sfx.Explosion, 0.5f, 0f);
+                    RaiseShake(0.6f);
+                    break;
                 case SimEventType.RingOut:
+                    if (Arena.CurrentMap == Arena.MapSanctuary)
+                    {
+                        // Falls into the sea of clouds: a soft white puff and a ring of mist.
+                        Vector3 cloud = new Vector3(pos.x, -7f, pos.z);
+                        Ring(cloud, new Color(2.2f, 2f, 2.6f), 0.7f, 1f, 8f);
+                        Flash(cloud, new Color(3f, 2.6f, 3.4f), 0.4f, 1f, 4f);
+                        Burst(cloud, new Color(2f, 1.8f, 2.4f), 30, 7f, 1.0f, true);
+                        _sfx.Play(Sfx.Explosion, 0.7f, 0f);
+                        RaiseShake(0.6f);
+                        break;
+                    }
                     Vector3 lava = new Vector3(pos.x, Arena.LavaHeight.ToFloat() + 0.1f, pos.z);
                     Ring(lava, new Color(5f, 1.8f, 0.4f), 0.7f, 1f, 7f);
                     Flash(lava, new Color(6f, 2.5f, 0.6f), 0.4f, 1f, 4f);

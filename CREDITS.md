@@ -26,3 +26,6 @@ Player-facing game name: **WUSHEN**, developed by **Pixtel Studios** (HEXBOUND i
 ## Unity packages
 
 Unity Transport, Unity Multiplayer Services, Input System, Universal Render Pipeline, Unity glTFast, Cinemachine, Multiplayer Play Mode.
+
+## Celestial Sanctuary map
+Concept, layout and models by Pixtel Studios. Models made with Modly (temple gate, cherry tree, floating island, celestial arch, waterfall cliff, shrine lantern, banner, stone pillar).

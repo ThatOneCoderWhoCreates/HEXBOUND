@@ -13,6 +13,14 @@ namespace HEXBOUND.Core
         private const string InputDelayKey = "hexbound.inputDelay";
         private const string BeastMemoryKey = "hexbound.beastMemory";
         private const string BotDifficultyKey = "hexbound.botDifficulty";
+        private const string MapKey = "hexbound.map";
+
+        /// <summary>Arena for offline matches and for hosting online: 0 Lava Pit, 1 Celestial Sanctuary.</summary>
+        public static int Map
+        {
+            get { return Mathf.Clamp(PlayerPrefs.GetInt(MapKey, 1), 0, 1); }
+            set { PlayerPrefs.SetInt(MapKey, Mathf.Clamp(value, 0, 1)); }
+        }
 
         /// <summary>Versus Bot difficulty: 0 easy, 1 normal, 2 hard.</summary>
         public static int BotDifficulty

@@ -49,6 +49,8 @@ namespace HEXBOUND.Simulation
         public int MoveDirection;
         public int ComboStep;
         public int HitMask;
+        /// <summary>Pillars already struck by this move: bit (pillar * 8 + hitbox group).</summary>
+        public int PillarHitMask;
         public int RehitTimer;
 
         public int CooldownSkill1;
@@ -64,6 +66,8 @@ namespace HEXBOUND.Simulation
         public bool Awakened;
         /// <summary>0 = primary weapon, 1 = secondary weapon (Launcher: missile launcher / pistol).</summary>
         public byte WeaponMode;
+        /// <summary>Ticks left in which a light attack continues the combo after the previous combo hit ended.</summary>
+        public int ComboGrace;
 
         public BuffId Buff;
         public int BuffTicks;

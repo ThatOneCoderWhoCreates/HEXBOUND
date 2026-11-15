@@ -6,13 +6,14 @@ using UnityEngine.Rendering.Universal;
 namespace HEXBOUND.Presentation
 {
     /// <summary>
-    /// The battleground: the lava arena stage (Lava_Stage.fbx) used whole. Its flat center platform is the
+    /// The battleground for the selected map (Arena.MapLava or Arena.MapSanctuary); SetMap rebuilds it when the map changes.
+    /// Lava Pit: the lava arena stage (Lava_Stage.fbx) used whole. Its flat center platform is the
     /// fighting floor, with the top placed at height 0 to match HEXBOUND.Simulation.Arena, and its three rock
     /// spikes are solid in the simulation. Two small floating islands drift in the sky beyond the wall as scenery.
     /// Models load from Resources/Arena. If the stage is missing, a plain floor shaped like the simulation's
     /// edge table is built instead, so the game always works.
     /// </summary>
-    public sealed class ArenaView
+    public sealed partial class ArenaView
     {
         // Lava stage measurements (FBX units, measured from Lava_Stage.fbx). Used at its original scale.
         private const float LavaOuterWidthFbx = 78.14f;
@@ -24,25 +25,60 @@ namespace HEXBOUND.Presentation
 
         public GameObject Root { get; private set; }
 
+        /// <summary>The map currently shown (-1 before the first SetMap).</summary>
+        public int Map { get; private set; } = -1;
+
+        /// <summary>True when the camera should draw the skybox; otherwise it clears to BackgroundColor.</summary>
+        public bool UsesSkybox { get; private set; }
+        public Color BackgroundColor { get; private set; } = new Color(0.12f, 0.04f, 0.03f);
+
+        private GameObject _mapRoot;
         private Material _lavaMaterial;
         private Material _fallbackRim;
         private float _time;
 
-        public ArenaView(Transform parent)
+        public ArenaView(Transform parent, int map)
         {
             Root = new GameObject("Arena");
             Root.transform.SetParent(parent, false);
+            SetMap(map);
+        }
 
+        /// <summary>Shows the given map, rebuilding the scenery if it changed. Returns true if it changed.</summary>
+        public bool SetMap(int map)
+        {
+            if (map < 0 || map >= Arena.MapCount) map = Arena.MapLava;
+            if (map == Map) return false;
+            Map = map;
+            if (_mapRoot != null) Object.Destroy(_mapRoot);
+            _mapRoot = new GameObject(map == Arena.MapSanctuary ? "Celestial Sanctuary" : "Lava Pit");
+            _mapRoot.transform.SetParent(Root.transform, false);
+            _lavaMaterial = null;
+            _fallbackRim = null;
+            _skyIslands.Clear();
+            _skyIslandBase.Clear();
+            ClearSanctuary();
+
+            if (map == Arena.MapSanctuary)
+            {
+                BuildSanctuary();
+                return true;
+            }
+
+            UsesSkybox = false;
+            BackgroundColor = new Color(0.12f, 0.04f, 0.03f);
             bool stage = BuildLavaStage();
             if (!stage) BuildFallbackFloor();
             BuildSkyIslands();
             BuildEmbers();
             SetupLighting();
+            return true;
         }
 
         public void Update(float deltaTime)
         {
             _time += deltaTime;
+            if (Map == Arena.MapSanctuary) UpdateSanctuary(deltaTime);
             if (_lavaMaterial != null)
             {
                 Vector2 flow = new Vector2(_time * 0.004f, _time * 0.0025f);
@@ -78,7 +114,7 @@ namespace HEXBOUND.Presentation
         private void AddSkyIsland(GameObject prefab, float angleDegrees, float distance, float height, float width)
         {
             var holder = new GameObject("Sky Island").transform;
-            holder.SetParent(Root.transform, false);
+            holder.SetParent(_mapRoot.transform, false);
             GameObject instance = Object.Instantiate(prefab, holder, false);
             RemoveColliders(instance);
             Renderer top = FindRenderer(instance.transform, "island");
@@ -98,10 +134,11 @@ namespace HEXBOUND.Presentation
         {
             int n = Arena.EdgeSamples;
             var top = new Vector3[n];
+            ArenaLayout layout = Arena.Layout(Arena.MapLava);
             for (int i = 0; i < n; i++)
             {
                 int angle = i * FixMath.FullTurn / n;
-                float r = Arena.EdgeRadius(angle).ToFloat() + 0.25f;
+                float r = Arena.EdgeRadius(layout, angle).ToFloat() + 0.25f;
                 float a = i * Mathf.PI * 2f / n;
                 top[i] = new Vector3(Mathf.Sin(a) * r, 0f, Mathf.Cos(a) * r);
             }
@@ -139,7 +176,7 @@ namespace HEXBOUND.Presentation
             mesh.RecalculateBounds();
 
             var go = new GameObject("Fallback Floor");
-            go.transform.SetParent(Root.transform, false);
+            go.transform.SetParent(_mapRoot.transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = MaterialFactory.Lit(new Color(0.22f, 0.19f, 0.18f), 0.25f);
 
@@ -148,7 +185,7 @@ namespace HEXBOUND.Presentation
             {
                 Vector3 a = top[i];
                 Vector3 c = top[(i + 1) % n];
-                GameObject edge = MaterialFactory.Primitive(PrimitiveType.Cube, Root.transform, _fallbackRim, "Edge");
+                GameObject edge = MaterialFactory.Primitive(PrimitiveType.Cube, _mapRoot.transform, _fallbackRim, "Edge");
                 edge.transform.localPosition = (a + c) * 0.5f;
                 edge.transform.localRotation = Quaternion.LookRotation(c - a, Vector3.up);
                 edge.transform.localScale = new Vector3(0.12f, 0.08f, Vector3.Distance(a, c));
@@ -164,7 +201,7 @@ namespace HEXBOUND.Presentation
             if (prefab == null) return false;
 
             var holder = new GameObject("Lava Stage").transform;
-            holder.SetParent(Root.transform, false);
+            holder.SetParent(_mapRoot.transform, false);
             GameObject instance = Object.Instantiate(prefab, holder, false);
             instance.name = "Lava Stage Model";
             RemoveColliders(instance);
@@ -224,7 +261,7 @@ namespace HEXBOUND.Presentation
         private void BuildEmbers()
         {
             var go = new GameObject("Embers");
-            go.transform.SetParent(Root.transform, false);
+            go.transform.SetParent(_mapRoot.transform, false);
             go.transform.localPosition = new Vector3(0f, Arena.LavaHeight.ToFloat() - 0.5f, 0f);
             ParticleSystem ps = go.AddComponent<ParticleSystem>();
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -289,7 +326,7 @@ namespace HEXBOUND.Presentation
         private void SetupLighting()
         {
             var sunGo = new GameObject("Key Light");
-            sunGo.transform.SetParent(Root.transform, false);
+            sunGo.transform.SetParent(_mapRoot.transform, false);
             sunGo.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
             Light sun = sunGo.AddComponent<Light>();
             sun.type = LightType.Directional;
@@ -298,7 +335,7 @@ namespace HEXBOUND.Presentation
             sun.shadows = LightShadows.Soft;
 
             var rimGo = new GameObject("Rim Light");
-            rimGo.transform.SetParent(Root.transform, false);
+            rimGo.transform.SetParent(_mapRoot.transform, false);
             rimGo.transform.rotation = Quaternion.Euler(18f, 150f, 0f);
             Light rim = rimGo.AddComponent<Light>();
             rim.type = LightType.Directional;
@@ -308,7 +345,7 @@ namespace HEXBOUND.Presentation
 
             // Lava glow from below, lighting the underside of the island and the fighters' legs.
             var underGo = new GameObject("Lava Up Light");
-            underGo.transform.SetParent(Root.transform, false);
+            underGo.transform.SetParent(_mapRoot.transform, false);
             underGo.transform.rotation = Quaternion.Euler(-70f, 20f, 0f);
             Light under = underGo.AddComponent<Light>();
             under.type = LightType.Directional;
@@ -320,7 +357,7 @@ namespace HEXBOUND.Presentation
             {
                 float a = i * Mathf.PI * 0.5f + 0.4f;
                 var pointGo = new GameObject("Lava Glow " + i);
-                pointGo.transform.SetParent(Root.transform, false);
+                pointGo.transform.SetParent(_mapRoot.transform, false);
                 pointGo.transform.localPosition = new Vector3(Mathf.Sin(a) * 18f, -6f, Mathf.Cos(a) * 18f);
                 Light p = pointGo.AddComponent<Light>();
                 p.type = LightType.Point;
@@ -342,7 +379,7 @@ namespace HEXBOUND.Presentation
             RenderSettings.skybox = null;
 
             var volumeGo = new GameObject("Post Processing");
-            volumeGo.transform.SetParent(Root.transform, false);
+            volumeGo.transform.SetParent(_mapRoot.transform, false);
             Volume volume = volumeGo.AddComponent<Volume>();
             volume.isGlobal = true;
             volume.priority = 10f;
@@ -364,12 +401,12 @@ namespace HEXBOUND.Presentation
 
         // ------------------------------------------------------------------ Helpers
 
-        private static void RemoveColliders(GameObject go)
+        internal static void RemoveColliders(GameObject go)
         {
             foreach (Collider c in go.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
         }
 
-        private static Transform FindTransform(Transform root, string name)
+        internal static Transform FindTransform(Transform root, string name)
         {
             foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
             {

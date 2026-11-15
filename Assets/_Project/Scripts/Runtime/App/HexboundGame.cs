@@ -99,7 +99,8 @@ namespace HEXBOUND.App
             if (existing != null) existing.gameObject.SetActive(false);
 
             _camera = new ThirdPersonCamera(transform);
-            _arena = new ArenaView(transform);
+            _arena = new ArenaView(transform, GameSettings.Map);
+            ApplyArenaCamera();
             _sfx = new SfxPlayer(transform);
             _music = new MusicPlayer(transform);
             _presenter = new MatchPresenter(transform, _sfx);
@@ -131,6 +132,13 @@ namespace HEXBOUND.App
             _menu.Beast += () => OpenOfflineSelect(SelectMode.Beast);
             _menu.Arcade += () => OpenOfflineSelect(SelectMode.Arcade);
             _select.PlayerChanged += id => _preview.Show(id);
+            _select.MapClicked += () =>
+            {
+                Click();
+                GameSettings.Map = (GameSettings.Map + 1) % Arena.MapCount;
+                if (_net != null && _net.IsHost) _net.Map = GameSettings.Map;
+                RefreshMapButton();
+            };
             _select.DifficultyClicked += () =>
             {
                 Click();
@@ -249,6 +257,26 @@ namespace HEXBOUND.App
 
         // ---------------------------------------------------------------- Screens
 
+        private static string MapName(int map)
+        {
+            return map == Arena.MapSanctuary ? "Celestial Sanctuary" : "Lava Pit";
+        }
+
+        /// <summary>Map button on the select screen. Online, only the host chooses.</summary>
+        private void RefreshMapButton()
+        {
+            bool client = _select.Mode == SelectMode.Online && _net != null && !_net.IsHost;
+            _select.SetMap(client ? "HOST PICKS" : MapName(GameSettings.Map), !client);
+        }
+
+        /// <summary>Camera background for the current arena: its skybox, or a plain color.</summary>
+        private void ApplyArenaCamera()
+        {
+            if (_camera == null || _arena == null) return;
+            _camera.Camera.clearFlags = _arena.UsesSkybox ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
+            _camera.Camera.backgroundColor = _arena.BackgroundColor;
+        }
+
         private static string DifficultyName(int difficulty)
         {
             return difficulty == 0 ? "Easy" : difficulty == 2 ? "Hard" : "Normal";
@@ -280,6 +308,7 @@ namespace HEXBOUND.App
             HideAll();
             _screen = ScreenId.Select;
             _select.Open(mode);
+            RefreshMapButton();
             _select.SetTrainingOptions(_trainingBotMode.ToString(), _infiniteMagic);
             _select.SetDifficulty(DifficultyName(GameSettings.BotDifficulty));
             if (mode == SelectMode.Beast)
@@ -392,6 +421,7 @@ namespace HEXBOUND.App
                 Mode = training ? MatchMode.Training : (beast ? MatchMode.Beast : MatchMode.Versus),
                 InfiniteMagic = training && _infiniteMagic,
                 BeastLevel = beast ? _beastMemory.Level : 0,
+                Map = GameSettings.Map,
             };
             _beast = beast ? new BeastBrain(_beastMemory, _offlineSetup.Seed * 17u + 3u) : null;
             _beastRecorded = false;
@@ -454,6 +484,7 @@ namespace HEXBOUND.App
                 Seed = (uint)Environment.TickCount | 1u,
                 Mode = final ? MatchMode.Beast : MatchMode.Versus,
                 BeastLevel = final ? _arcadeMemory.Level : 0,
+                Map = GameSettings.Map,
             };
             _offline = new GameState();
             _offlineEvents.Clear();
@@ -534,7 +565,7 @@ namespace HEXBOUND.App
                 OnlineServices.HostResult result = await OnlineServices.CreateRoomAsync();
                 if (attempt != _onlineAttempt || _screen != ScreenId.Online) return;
                 _link = UnityTransportLink.HostRelay(result.RelayData);
-                _net = new NetMatch(_link, true, GameSettings.InputDelay, (uint)Environment.TickCount);
+                _net = new NetMatch(_link, true, GameSettings.InputDelay, (uint)Environment.TickCount) { Map = GameSettings.Map };
                 _online.SetRoomCode(result.JoinCode);
                 _online.SetStatus("Share this code with your opponent. Waiting for them to join...");
             }
@@ -582,7 +613,7 @@ namespace HEXBOUND.App
             CloseOnline();
             _onlineAttempt++;
             _link = UnityTransportLink.HostDirect(DirectPort);
-            _net = new NetMatch(_link, true, GameSettings.InputDelay, (uint)Environment.TickCount);
+            _net = new NetMatch(_link, true, GameSettings.InputDelay, (uint)Environment.TickCount) { Map = GameSettings.Map };
             _online.SetBusy(_link.Status != TransportStatus.Failed);
             _online.SetStatus(_link.StatusMessage + "  Your opponent joins with your IP address.");
         }
@@ -637,6 +668,7 @@ namespace HEXBOUND.App
                 _presenter.Clear();
                 _screen = ScreenId.Select;
                 _select.Open(SelectMode.Online);
+                RefreshMapButton();
                 _net.SetCharacter(_select.Player, false);
             }
 
@@ -675,6 +707,10 @@ namespace HEXBOUND.App
             else if (inMatch) UpdateOffline(dt);
 
             if (_select.Root.activeSelf) _preview.Update((float)dt);
+            GameState shownState = CurrentState;
+            int map = _screen == ScreenId.Match && shownState != null ? shownState.Setup.Map : (IsOnline && _net != null && !_net.IsHost ? _arena.Map : GameSettings.Map);
+            if (_arena.SetMap(map)) ApplyArenaCamera();
+            _arena.SyncPillars(_screen == ScreenId.Match ? shownState : null);
             _arena.Update((float)dt);
             _music.SetMood(_screen == ScreenId.Match ? MusicMood.Match : (_screen == ScreenId.Menu ? MusicMood.Menu : MusicMood.Lobby));
             _music.Update((float)dt);

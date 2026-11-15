@@ -73,16 +73,23 @@ namespace HEXBOUND.Simulation
                 h.Add(c.AwakenDamagePercent);
                 h.Add(c.Name.Length);
             }
-            for (int i = 0; i < Arena.EdgeSamples; i++)
+            for (int map = 0; map < Arena.MapCount; map++)
             {
-                h.Add(Arena.EdgeRadius(i * (FixMath.FullTurn / Arena.EdgeSamples)));
+                ArenaLayout layout = Arena.Layout(map);
+                for (int i = 0; i < Arena.EdgeSamples; i++)
+                {
+                    h.Add(Arena.EdgeRadius(layout, i * (FixMath.FullTurn / Arena.EdgeSamples)));
+                }
+                for (int i = 0; i < layout.Pillars.Length; i++)
+                {
+                    h.Add(layout.Pillars[i]);
+                }
+                h.Add(layout.PillarRadius);
+                h.Add(layout.PillarHeight);
+                h.Add(layout.PillarHealth);
+                h.Add(layout.Spawn0);
+                h.Add(layout.Spawn1);
             }
-            for (int i = 0; i < Arena.Pillars.Length; i++)
-            {
-                h.Add(Arena.Pillars[i]);
-            }
-            h.Add(Arena.PillarRadius);
-            h.Add(Arena.PillarHeight);
             for (int i = 0; i < Moves.Length; i++)
             {
                 MoveDef m = Moves[i];
