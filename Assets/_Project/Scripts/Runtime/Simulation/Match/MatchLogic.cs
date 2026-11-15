@@ -15,6 +15,8 @@ namespace HEXBOUND.Simulation
             ArenaLayout layout = Arena.Layout(s.Setup.Map);
             for (int i = 0; i < s.PillarHealth.Length; i++) s.PillarHealth[i] = i < layout.Pillars.Length ? layout.PillarHealth : 0;
             Arena.SetBroken(Arena.BrokenMask(s));
+            for (int i = 0; i < s.StructureHealth.Length; i++) s.StructureHealth[i] = i < layout.StructureCount ? layout.StructureHealth : 0;
+            Arena.SetBrokenStructures(Arena.BrokenStructureMask(s));
             FighterLogic.ResetForRound(ref s.Fighters[0], 0);
             FighterLogic.ResetForRound(ref s.Fighters[1], 1);
             for (int i = 0; i < s.Projectiles.Length; i++)

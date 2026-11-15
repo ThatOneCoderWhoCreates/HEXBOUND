@@ -168,6 +168,7 @@ namespace HEXBOUND.Simulation
                 wantsMove = wantsMove && Roll(0, 100) < 20;
             }
             frame.HasMove = wantsMove;
+            if (wantsMove) frame.Buttons |= InputButtons.Run;
             frame.MoveAngle = InputFrame.QuantizeAngle(moveAngle);
             return frame;
         }

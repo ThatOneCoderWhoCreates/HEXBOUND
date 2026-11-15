@@ -89,8 +89,14 @@ namespace HEXBOUND.UI
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
             "<b>9. Celestial Sanctuary map</b>\n" +
             "Concept, layout and models by Pixtel Studios, models made with Modly.\n\n" +
+            "<b>10. Sky Ruins map</b>\n" +
+            "Concept, layout and models by Pixtel Studios, models made with Modly.\n\n" +
+            "<b>SOUND</b>\n\n" +
+            "<b>11. Recorded sound effects (all CC0)</b>\n" +
+            "Impact Sounds and RPG Audio by Kenney (kenney.nl).\n" +
+            "Swishes Sound Pack by qubodup, sword swings and clashes by StarNinjas (opengameart.org).\n\n" +
             "<b>ANIMATIONS</b>\n\n" +
-            "<b>10. KinemIQ Animation Library</b>\n" +
+            "<b>12. KinemIQ Animation Library</b>\n" +
             "Source: https://kinemiq.app/\n" +
             "Licence: Depends on the individual animation used.\n" +
             "Attribution: Required for animations licensed under CC BY.\n" +
@@ -105,7 +111,7 @@ namespace HEXBOUND.UI
             UIFactory.Label(panel, "WUSHEN  |  Developed by Pixtel Studios", 28, UIFactory.Accent, TextAnchor.MiddleCenter, new Vector2(0, 385), new Vector2(1200, 44), FontStyle.Bold);
             Text left = UIFactory.Label(panel, CharactersText, 20, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(-440, -30), new Vector2(820, 760));
             left.supportRichText = true;
-            Text right = UIFactory.Label(panel, EnvironmentText, 20, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(440, -30), new Vector2(820, 760));
+            Text right = UIFactory.Label(panel, EnvironmentText, 18, UIFactory.TextColor, TextAnchor.UpperLeft, new Vector2(440, -30), new Vector2(820, 790));
             right.supportRichText = true;
             UIFactory.Button(panel, "CLOSE", new Vector2(0, -470), new Vector2(320, 70), () => _credits.SetActive(false));
             return panel.gameObject;

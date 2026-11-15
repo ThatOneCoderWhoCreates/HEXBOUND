@@ -19,7 +19,7 @@ namespace HEXBOUND.Simulation
                 MaxHealth = 1000,
                 MoveSpeed = ContentBuilder.M(122),
                 AirSpeed = ContentBuilder.M(105),
-                JumpVelocity = ContentBuilder.M(390),
+                JumpVelocity = ContentBuilder.M(420),
                 KnockbackScale = Fix.One,
                 ColorR = 235,
                 ColorG = 85,

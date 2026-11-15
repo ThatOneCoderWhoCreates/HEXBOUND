@@ -35,6 +35,12 @@ namespace HEXBOUND.Simulation
         PillarHit,
         /// <summary>A breakable pillar broke and fell apart (Param = pillar index).</summary>
         PillarBreak,
+        /// <summary>A breakable structure (temple, bridge) was hit. Param: structure index.</summary>
+        StructureHit,
+        /// <summary>A breakable structure collapsed. Param: structure index. Fighter: who broke it.</summary>
+        StructureBreak,
+        /// <summary>A fighter was crushed under a collapsing structure. Fighter: the victim.</summary>
+        Crushed,
         /// <summary>A weapon was thrown (Param = weapon bit).</summary>
         WeaponThrow,
         /// <summary>A thrown weapon landed on the floor (Param = weapon bit).</summary>

@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 namespace HEXBOUND.Presentation
 {
     /// <summary>
-    /// The battleground for the selected map (Arena.MapLava or Arena.MapSanctuary); SetMap rebuilds it when the map changes.
+    /// The battleground for the selected map (Arena.MapLava, Arena.MapSanctuary or Arena.MapRuins); SetMap rebuilds it when the map changes.
     /// Lava Pit: the lava arena stage (Lava_Stage.fbx) used whole. Its flat center platform is the
     /// fighting floor, with the top placed at height 0 to match HEXBOUND.Simulation.Arena, and its three rock
     /// spikes are solid in the simulation. Two small floating islands drift in the sky beyond the wall as scenery.
@@ -51,14 +51,20 @@ namespace HEXBOUND.Presentation
             if (map == Map) return false;
             Map = map;
             if (_mapRoot != null) Object.Destroy(_mapRoot);
-            _mapRoot = new GameObject(map == Arena.MapSanctuary ? "Celestial Sanctuary" : "Lava Pit");
+            _mapRoot = new GameObject(map == Arena.MapSanctuary ? "Celestial Sanctuary" : map == Arena.MapRuins ? "Sky Ruins" : "Lava Pit");
             _mapRoot.transform.SetParent(Root.transform, false);
             _lavaMaterial = null;
             _fallbackRim = null;
             _skyIslands.Clear();
             _skyIslandBase.Clear();
             ClearSanctuary();
+            ClearRuins();
 
+            if (map == Arena.MapRuins)
+            {
+                BuildRuins();
+                return true;
+            }
             if (map == Arena.MapSanctuary)
             {
                 BuildSanctuary();
@@ -79,6 +85,7 @@ namespace HEXBOUND.Presentation
         {
             _time += deltaTime;
             if (Map == Arena.MapSanctuary) UpdateSanctuary(deltaTime);
+            if (Map == Arena.MapRuins) UpdateRuins(deltaTime);
             if (_lavaMaterial != null)
             {
                 Vector2 flow = new Vector2(_time * 0.004f, _time * 0.0025f);

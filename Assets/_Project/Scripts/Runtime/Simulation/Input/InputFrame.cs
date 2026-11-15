@@ -23,6 +23,8 @@ namespace HEXBOUND.Simulation
         SwitchWeapon = 1 << 13,
         /// <summary>G: throw the weapon in hand, or pick up your dropped weapon when standing next to it.</summary>
         Throw = 1 << 14,
+        /// <summary>Run. Players run by default (the input reader sets it unless Shift / gamepad B is held, which walks); bots set it when moving.</summary>
+        Run = 1 << 15,
     }
 
     /// <summary>

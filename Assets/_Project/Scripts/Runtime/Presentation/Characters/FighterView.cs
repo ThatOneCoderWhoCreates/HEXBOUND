@@ -41,6 +41,63 @@ namespace HEXBOUND.Presentation
             Character = character;
             Visual = FighterRigBuilder.Build(character, parent, index);
             _animator = new FighterAnimator(Visual, character.Stance == FighterStance.Beast);
+            _contact = BuildContactShadow(parent, character);
+        }
+
+        private readonly Transform _contact;
+        private static Material _contactShared;
+
+        /// <summary>
+        /// A soft dark spot on the ground under the fighter. It stays on the floor (or the platform below) while the
+        /// fighter is in the air and shrinks and fades with height, so jumps and high ground read clearly.
+        /// </summary>
+        private Transform BuildContactShadow(Transform parent, CharacterDef character)
+        {
+            if (_contactShared == null)
+            {
+                Shader shader = MaterialFactory.FindShader("Universal Render Pipeline/Particles/Unlit", "Particles_Additive");
+                var m = new Material(shader) { name = "Contact Shadow" };
+                m.SetFloat("_Surface", 1f);
+                m.SetFloat("_Blend", 0f);
+                m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                m.SetFloat("_ZWrite", 0f);
+                m.SetOverrideTag("RenderType", "Transparent");
+                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 10;
+                m.SetColor("_BaseColor", new Color(0f, 0f, 0f, 0.5f));
+                m.SetTexture("_BaseMap", MaterialFactory.SoftDot);
+                m.mainTexture = MaterialFactory.SoftDot;
+                _contactShared = m;
+            }
+            GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = "Contact Shadow";
+            Object.Destroy(quad.GetComponent<Collider>());
+            quad.transform.SetParent(parent, false);
+            quad.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            Renderer r = quad.GetComponent<Renderer>();
+            r.sharedMaterial = _contactShared;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            _contactSize = character.Radius.ToFloat() * 3.2f;
+            return quad.transform;
+        }
+
+        private float _contactSize;
+
+        private void UpdateContactShadow(Vector3 feet, bool visible)
+        {
+            if (_contact == null) return;
+            FixVec3 fp = new FixVec3(Fix.FromRaw((long)(feet.x * 65536f)), Fix.FromRaw((long)(feet.y * 65536f + 0.4f * 65536f)), Fix.FromRaw((long)(feet.z * 65536f)));
+            bool overFloor = Arena.IsInside(fp);
+            float ground = overFloor ? Arena.GroundAt(fp).ToFloat() : 0f;
+            float height = feet.y - ground;
+            bool show = visible && overFloor && height > -0.3f && height < 12f;
+            if (_contact.gameObject.activeSelf != show) _contact.gameObject.SetActive(show);
+            if (!show) return;
+            float k = Mathf.Clamp01(1f - height / 8f);
+            _contact.position = new Vector3(feet.x, ground + 0.025f, feet.z);
+            _contact.localScale = Vector3.one * _contactSize * Mathf.Lerp(0.55f, 1f, k);
         }
 
         public Vector3 Position
@@ -87,6 +144,7 @@ namespace HEXBOUND.Presentation
             }
             Visual.Root.position = renderPos;
             Visual.Root.rotation = Quaternion.Euler(0f, renderYaw, 0f);
+            UpdateContactShadow(renderPos, f.Action != FighterAction.RingOut && Visual.Root.gameObject.activeInHierarchy);
 
             Vector3 v = ToVector(f.Velocity);
             v.y = 0f;
@@ -291,6 +349,7 @@ namespace HEXBOUND.Presentation
                 if (_dropped[w] != null) Object.Destroy(_dropped[w]);
             }
             _animator.Dispose();
+            if (_contact != null) Object.Destroy(_contact.gameObject);
             if (Visual.Root != null) Object.Destroy(Visual.Root.gameObject);
         }
 

@@ -56,7 +56,7 @@ namespace HEXBOUND.UI
                 "Right click  Heavy attack (breaks block)\n" +
                 "Q / E  Skills\n" +
                 "R  Ultimate\n" +
-                "Shift  Dodge (air dash in the air)\n" +
+                "Shift  Tap: dodge (air dash in the air)  /  Hold: walk (you run otherwise)\n" +
                 "Space  Jump (rise while flying)\n" +
                 "Left Ctrl  Block (hold)  |  Parry: tap just before a hit\n" +
                 "F  Grab (beats block)\n" +
@@ -77,7 +77,7 @@ namespace HEXBOUND.UI
                 "X  Light    Y  Heavy\n" +
                 "RB  Skill 1    RT  Skill 2\n" +
                 "LT  Ultimate\n" +
-                "B  Dodge    A  Jump\n" +
+                "B  Tap: dodge, hold: walk    A  Jump\n" +
                 "LB  Block / Parry\n" +
                 "D-pad down  Grab\n" +
                 "D-pad up  Recharge\n" +

@@ -51,6 +51,8 @@ namespace HEXBOUND.Simulation
         public int HitMask;
         /// <summary>Pillars already struck by this move: bit (pillar * 8 + hitbox group).</summary>
         public int PillarHitMask;
+        /// <summary>Structures already chipped by the current move (bit = structure * 8 + hitbox group).</summary>
+        public int StructureHitMask;
         public int RehitTimer;
 
         public int CooldownSkill1;

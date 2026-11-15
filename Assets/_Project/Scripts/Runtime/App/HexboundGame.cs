@@ -50,6 +50,7 @@ namespace HEXBOUND.App
         private GameState _offline;
         private readonly EventBuffer _offlineEvents = new EventBuffer(512);
         private TrainingBot _bot;
+        private readonly TutorialChecklist _tutorial = new TutorialChecklist();
         private BeastBrain _beast;
         private BeastMemory _beastMemory;
         private bool _beastRecorded;
@@ -91,6 +92,7 @@ namespace HEXBOUND.App
 
         private void Awake()
         {
+            ApplyGraphicsQuality();
             Application.targetFrameRate = 144;
             QualitySettings.vSyncCount = 1;
             Application.runInBackground = true;
@@ -259,7 +261,7 @@ namespace HEXBOUND.App
 
         private static string MapName(int map)
         {
-            return map == Arena.MapSanctuary ? "Celestial Sanctuary" : "Lava Pit";
+            return map == Arena.MapSanctuary ? "Celestial Sanctuary" : map == Arena.MapRuins ? "Sky Ruins" : "Lava Pit";
         }
 
         /// <summary>Map button on the select screen. Online, only the host chooses.</summary>
@@ -267,6 +269,20 @@ namespace HEXBOUND.App
         {
             bool client = _select.Mode == SelectMode.Online && _net != null && !_net.IsHost;
             _select.SetMap(client ? "HOST PICKS" : MapName(GameSettings.Map), !client);
+        }
+
+        /// <summary>
+        /// Smoother edges (4x MSAA) and shadows far enough for the long Sky Ruins courtyard. Only in built games: in the
+        /// editor a change to the pipeline asset would be saved into the project.
+        /// </summary>
+        private static void ApplyGraphicsQuality()
+        {
+#if !UNITY_EDITOR
+            var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+            if (urp == null) return;
+            urp.msaaSampleCount = 4;
+            urp.shadowDistance = 70f;
+#endif
         }
 
         /// <summary>Camera background for the current arena: its skybox, or a plain color.</summary>
@@ -407,6 +423,7 @@ namespace HEXBOUND.App
             _arcade = false;
             bool training = _offlineMode == SelectMode.Training;
             bool beast = _offlineMode == SelectMode.Beast;
+            if (training) _tutorial.Reset();
             if (beast)
             {
                 LoadBeast();
@@ -767,6 +784,9 @@ namespace HEXBOUND.App
                 _presenter.Render(state, events, Mathf.Clamp01(alpha), (float)dt);
                 events.Clear();
                 _hud.Update(state, _localIndex, _camera.Camera, NetInfo(), TrainingInfo(), (float)dt);
+                bool tutorial = !IsOnline && _offline != null && _offline.Setup.Mode == MatchMode.Training;
+                if (tutorial) _tutorial.Observe(state, _localIndex);
+                _hud.SetTutorial(tutorial ? _tutorial.Text() : string.Empty);
                 _hud.SetLatency(IsOnline && _net != null ? Mathf.RoundToInt((float)_net.RttMs) : -1);
                 UpdateAimHud(state);
 
@@ -815,6 +835,7 @@ namespace HEXBOUND.App
                 _bot.Mode = _trainingBotMode;
                 Click();
             }
+            if (training && LocalInputReader.KeyPressed(Key.F3)) _tutorial.Visible = !_tutorial.Visible;
             if (training && LocalInputReader.KeyPressed(Key.F4))
             {
                 RestartTraining();
@@ -915,7 +936,7 @@ namespace HEXBOUND.App
                 return "THE BEAST  Level " + _beastMemory.Level + "\nLearning from your moves...";
             }
             if (IsOnline || _offline == null || _offline.Setup.Mode != MatchMode.Training) return string.Empty;
-            return "TRAINING   Bot: " + _trainingBotMode + " (F2)\nInfinite magic: " + (_offline.Setup.InfiniteMagic ? "ON" : "OFF") + "   F1 hitboxes   F4 reset";
+            return "TRAINING   Bot: " + _trainingBotMode + " (F2)\nInfinite magic: " + (_offline.Setup.InfiniteMagic ? "ON" : "OFF") + "   F1 hitboxes   F3 checklist   F4 reset";
         }
 
         private void Quit()

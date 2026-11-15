@@ -557,6 +557,7 @@ namespace HEXBOUND.Presentation
         /// </summary>
         public void SyncPillars(GameState s)
         {
+            if (Map == Arena.MapRuins) SyncStructures(s);
             if (Map != Arena.MapSanctuary || _crystals.Count == 0) return;
             int max = Arena.Layout(Arena.MapSanctuary).PillarHealth;
             for (int i = 0; i < _crystals.Count; i++)

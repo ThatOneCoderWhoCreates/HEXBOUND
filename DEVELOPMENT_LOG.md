@@ -4,6 +4,68 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-15: Sky Ruins x4, solid roofs, breakable structures, run by default
+
+### Request (Tanmay)
+Could not jump onto the temple roof; make running the default and Shift walk; make the map at least 4 times bigger; structures you can go up or down get 2000 health, then break and crash, killing anything underneath. Missile Rain must not hit an enemy under a roof (the roof takes it; once broken it crashes down).
+
+### Changes
+- TerrainBox.Bottom (roofs and decks you can walk under) and TerrainBox.Group (breakable structure). GroundAt is relative to the body's height (an overhead roof does not count). HitCeiling stops heads at undersides; PushOutOfTerrain takes the body height. TerrainIndexAt / ClearLine for projectiles and blasts. Projectiles test their path in quarter steps (no skipping through thin roofs).
+- Breakable structures: ArenaLayout.StructureHealth (2000) and StructureCount; GameState.StructureHealth (checksummed, reset each round); Arena.SetBrokenStructures each tick. CombatResolver.DamageStructure (melee via StrikeStructures with FighterState.StructureHitMask, direct projectile hits, blasts in range); at 0: StructureBreak, Crushed for fighters under the roof or deck (DealDamage for their remaining health). Blasts need a clear line to the fighter.
+- Sky Ruins layout doubled (edge table regenerated, Tools/RuinsBuilder/layout.py); temple roof 3.5 to 4.0 m on four columns (structures 0 and 1); walkways with deck, four piers and stairs (structures 2 and 3); more cover. Spawns at z -29 / 29.
+- Input: Run is set unless Shift or B is held past the tap time (walk). Controls text, HUD hint and checklist updated (walk is detected at walking speed held for a moment).
+- Presentation: Ruins.glb rebuilt at the new size (floor texture covers 72 m, 3072 px), one node per structure; ArenaView.Ruins shows health bars, shakes on hits, collapses into falling rubble that settles on the ground and sinks after 9 s, and restores in a new round. Camera ignores broken blocks and fits under roofs. Effects: chips and dust on structure hits; collapse dust, rubble, sound, shake and COLLAPSE / CRUSHED popups.
+
+### Tests
+rostertest Sky Ruins: spawns, size, stairs, wall blocking and jumping, terrace stairs and under the roof, head bump under the roof, walking off a terrace, Kael jumps onto the roof, walking under and up onto the walkway, cover stops a rocket, Missile Rain does no damage under the roof and the roof takes 1120, a broken temple crushes Rook underneath and the roof is gone, melee damages a walkway, cliff ring-out and alcove wall, deterministic bot matches, nobody inside a block. All suites pass. Checked in the Unity editor.
+
+### Open issues
+- Bots do not deliberately break structures or hide under roofs.
+
+---
+
+## 2026-11-15: Sky Ruins map (real high ground), graphics, recorded sounds, training checklist, bots
+
+### Request (Tanmay)
+Improve the game so it is worth playing: better graphics, more natural audio, polish, and a new map like the ruins concept sheet (open cracked courtyard, raised paths, stairs, broken pillars, cover walls, temple platforms and terraces, mountain cliffs and mist, two opposing spawns with several routes). Chosen options: real high ground; cliffs ring out with walled paths; Claude drives Modly; graphics, natural audio and game polish.
+
+### Changes
+- Simulation: TerrainBox (axis-aligned blocks with a height, or a ramp for stairs) in ArenaLayout.Terrain. Arena.GroundAt, InsideTerrain, PushOutOfTerrain (StepHeight 0.45 m on foot, 0.12 m in the air). FighterLogic.Integrate lands on platforms, follows stairs up and down, falls off higher ledges, and is stopped by walls (velocity into the wall removed); Separate also pushes out of blocks. Projectiles that enter a block explode at its face or top. Dropped and thrown weapons land on the ground height; pickup needs the same level. Flight heights are relative to the ground. Layout hash includes the terrain.
+- Map 2, Sky Ruins (Arena.MapRuins): rounded 22 x 26 m courtyard, spawn platforms out to 17 m, side alcoves to 13.5 m; 33 terrain blocks (spawn platforms 1.6 m with stairs, corner terraces 1.3 m with stairs, temple columns, broken walls, broken columns, altar), point-symmetric. Invisible walls at the four exits (17 and 16 degrees half width).
+- Presentation: ArenaView.Ruins (Resources/Arena/Ruins/Ruins.glb built by Tools/RuinsBuilder from Arena.cs, textured flagstone floor and masonry walls; Modly models Temple, RuinedWall, Arch, Column in Resources/Arena/Ruins/Models; mist sea, wisps and banks; wind dust; afternoon sun; panoramic sky; post-processing). Fallback blocks if Ruins.glb is missing. ThirdPersonCamera pulls in front of blocks and keeps above the ground height.
+- Graphics: ImpactFx (dust, stretched sparks, stone chips) wired into EffectsPlayer events and running footsteps; contact shadow under each fighter on the ground or platform below; built games use 4x MSAA and 70 m shadow distance.
+- Audio: rx_ recorded CC0 clips (Tools/RecordedSfx): swings, throws, clashes, parries, blocks, dodge cloth, drops, pickups, footsteps. Ambience wind loop for Sky Ruins; birds rarer there.
+- UI: TutorialChecklist in training (F3 toggles), MatchHud.SetTutorial with an outline; credits list the Sky Ruins map and the sound packs; MAP button cycles three maps (GameSettings.Map clamp fixed: it only allowed 0 and 1).
+- Bots: jump when stuck or when the player is on a platform above, recover a dropped weapon, sometimes hold G to throw, Vex fires rockets.
+- Fixes: Levitate diving attacks sank through the floor; a fast fall onto a platform could end up inside it.
+
+### Tests
+rostertest Sky Ruins: spawns on the platforms at 1.6 m; walks down the spawn stairs without leaving the ground; a wall blocks walking; a jump clears it; walks up terrace stairs to 1.3 m; walks off a terrace and lands; cover stops a rocket; cliff ring-out and the alcove wall; 6000-tick bot match deterministic and never inside a block. nettest adds two online matches on Sky Ruins (no desync). All suites pass. Checked in the Unity editor (training on Sky Ruins: stairs, walls, temples, terraces, checklist).
+
+### Open issues
+- Temple roofs are scenery only (a high jump can pass through them).
+- Mountains are simple low-poly shapes.
+- The checklist does not track crouch, grab or lock-on.
+
+---
+
+## 2026-11-15: Walk by default, Shift to run, higher jumps
+
+### Request (Tanmay)
+Jump a little higher; holding Shift runs, otherwise walk.
+
+### Changes
+- InputButtons.Run (bit 15). FighterLogic: WalkSpeedScale 0.5 unless Run is held (ground movement only; air speed unchanged).
+- LocalInputReader: Shift and gamepad B are timed per frame; released before 0.18 s = Dodge press, held longer = Run. Dodge removed from the plain held and pressed reads. G and gamepad Select added to the held read (hold-G throw never registered before).
+- JumpVelocity: Lyra 335, Kael 390, Bram 390, Rook 420, Vex 465, Beast 315 (milli-units per tick).
+- TrainingBot and BeastBrain set Run whenever they move.
+- Controls text and HUD hint updated.
+
+### Tests
+rostertest: walk 3.15 m vs run 6.30 m in 1 s; jump heights Kael 4.03, Rook 4.69, Lyra 2.95, Bram 4.03, Vex 5.78. All suites pass.
+
+---
+
 ## 2026-11-15: Balance: Golden Dragon 400, rockets 100 with a 1.75 s reload
 
 ### Request (Tanmay)

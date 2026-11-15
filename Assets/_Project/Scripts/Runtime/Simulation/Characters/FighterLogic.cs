@@ -36,6 +36,8 @@ namespace HEXBOUND.Simulation
 
         /// <summary>Speed multiplier for running and air control: faster with empty hands (less weight).</summary>
         public static readonly Fix UnarmedSpeedScale = Fix.Milli(1200);
+        /// <summary>Walking speed as a fraction of running speed (players walk while holding Shift).</summary>
+        public static readonly Fix WalkSpeedScale = Fix.Milli(500);
 
         public static bool IsFlying(ref FighterState f)
         {
@@ -369,6 +371,7 @@ namespace HEXBOUND.Simulation
             {
                 int dir = input.MoveAngleFull;
                 Fix speed = c.MoveSpeed * SpeedScale(ref f, c);
+                if (!input.Held(InputButtons.Run)) speed = speed * WalkSpeedScale;
                 FixVec3 v = FixVec3.FromAngle(dir) * speed;
                 f.Velocity.X = v.X;
                 f.Velocity.Z = v.Z;
@@ -410,7 +413,8 @@ namespace HEXBOUND.Simulation
 
         private static void FlightVertical(ref FighterState f, InputFrame input)
         {
-            if (f.Position.Y < GameConfig.FlightMinHeight)
+            Fix ground = Arena.GroundAt(f.Position);
+            if (f.Position.Y < ground + GameConfig.FlightMinHeight)
             {
                 f.Velocity.Y = GameConfig.FlightVerticalSpeed;
             }
@@ -418,7 +422,7 @@ namespace HEXBOUND.Simulation
             {
                 f.Velocity.Y = GameConfig.FlightVerticalSpeed;
             }
-            else if (input.Held(InputButtons.Block) && f.Position.Y > GameConfig.FlightMinHeight)
+            else if (input.Held(InputButtons.Block) && f.Position.Y > ground + GameConfig.FlightMinHeight)
             {
                 f.Velocity.Y = -GameConfig.FlightVerticalSpeed;
             }
@@ -667,6 +671,7 @@ namespace HEXBOUND.Simulation
             f.MoveTick = -1;
             f.HitMask = 0;
             f.PillarHitMask = 0;
+            f.StructureHitMask = 0;
             f.RehitTimer = 0;
             f.ComboStep = comboStep;
 
@@ -854,7 +859,7 @@ namespace HEXBOUND.Simulation
             int bit = 1 << w;
             f.WeaponsHeld = (byte)(f.WeaponsHeld & ~bit);
             f.PickupReady = (byte)(f.PickupReady & ~bit);
-            FixVec3 at = new FixVec3(f.Position.X, Fix.Zero, f.Position.Z);
+            FixVec3 at = new FixVec3(f.Position.X, Arena.GroundAt(f.Position), f.Position.Z);
             if (Arena.IsInside(at, Fix.Milli(200)))
             {
                 SetDropPos(ref f, w, at);
@@ -887,6 +892,8 @@ namespace HEXBOUND.Simulation
                 if ((f.WeaponsDropped & bit) == 0) continue;
                 FixVec3 d = (GetDropPos(ref f, w) - f.Position).Horizontal();
                 Fix distSq = d.LengthSquared();
+                // On another level (a platform above or below): too far to reach.
+                if (Fix.Abs(GetDropPos(ref f, w).Y - f.Position.Y) > Fix.One) distSq = distSq + Fix.FromInt(100);
                 if (distSq > PickUpArmRange * PickUpArmRange)
                 {
                     f.PickupReady = (byte)(f.PickupReady | bit);
@@ -933,7 +940,10 @@ namespace HEXBOUND.Simulation
                     FixVec3 at = GetDropPos(ref f, w);
                     if (Arena.IsInside(at, Fix.Milli(300)) && at.Y > GameConfig.RingOutHeight)
                     {
-                        at = Arena.ClampInside(new FixVec3(at.X, Fix.Zero, at.Z), Fix.Milli(400));
+                        at = Arena.ClampInside(at, Fix.Milli(400));
+                        FixVec3 pushed;
+                        Arena.PushOutOfTerrain(ref at, Fix.Milli(300), out pushed);
+                        at.Y = Arena.GroundAt(at);
                         SetDropPos(ref f, w, at);
                         f.WeaponsDropped = (byte)(f.WeaponsDropped | bit);
                         if (ev != null) ev.Add(s.Tick, SimEventType.WeaponDrop, i, bit, at);
@@ -1060,11 +1070,44 @@ namespace HEXBOUND.Simulation
                 }
             }
 
+            // Raised blocks (platforms, walls, stairs): stopped by the sides you cannot step onto.
+            if (f.Action != FighterAction.RingOut)
+            {
+                FixVec3 wallNormal;
+                // On foot a fighter climbs low ledges (stairs); in the air only the very top edge, so nobody passes
+                // through the top of a wall while flying past it.
+                Fix climb = f.Grounded ? Arena.StepHeight : Fix.Milli(120);
+                // Falling onto a platform or a wall top: stop on it before checking the sides, so a fast fall
+                // never sinks into the block and gets pushed out sideways.
+                if (f.Velocity.Y <= Fix.Zero && !IsFlying(ref f) && Arena.IsInside(next))
+                {
+                    Fix top = Arena.GroundAt(new FixVec3(next.X, previous.Y, next.Z));
+                    if (next.Y < top && previous.Y >= top - climb) next.Y = top;
+                }
+                // Rising into a roof or a bridge deck from below: the head stops at its underside.
+                if (f.Velocity.Y > Fix.Zero && Arena.HitCeiling(ref next, previous.Y, c.Height)) f.Velocity.Y = Fix.Zero;
+                if (Arena.PushOutOfTerrain(ref next, c.Radius, out wallNormal, climb, c.Height))
+                {
+                    Fix into = f.Velocity.X * wallNormal.X + f.Velocity.Z * wallNormal.Z;
+                    if (into < Fix.Zero)
+                    {
+                        f.Velocity.X = f.Velocity.X - wallNormal.X * into;
+                        f.Velocity.Z = f.Velocity.Z - wallNormal.Z * into;
+                    }
+                }
+            }
+
             bool inside = Arena.IsInside(next);
             bool wasGrounded = f.Grounded;
-            if (inside && next.Y <= Fix.Zero && previous.Y >= FloorSnapTolerance && f.Velocity.Y <= Fix.Zero && !flying)
+            bool wasGroundedForSnap = wasGrounded;
+            Fix ground = inside ? Arena.GroundAt(next) : Fix.Zero;
+            Fix snapBelow = ground.Raw == 0 ? FloorSnapTolerance : -(wasGroundedForSnap ? Arena.StepHeight : Fix.Milli(120));
+            bool landing = next.Y <= ground && previous.Y >= ground + snapBelow;
+            // Walking down stairs or off a low step keeps the feet on the ground.
+            bool steppingDown = wasGrounded && next.Y > ground && next.Y - ground <= Arena.StepHeight;
+            if (inside && (landing || steppingDown) && f.Velocity.Y <= Fix.Zero && !flying)
             {
-                next.Y = Fix.Zero;
+                next.Y = ground;
                 f.Velocity.Y = Fix.Zero;
                 f.Grounded = true;
                 f.AirDashUsed = false;
@@ -1074,6 +1117,12 @@ namespace HEXBOUND.Simulation
             else
             {
                 f.Grounded = false;
+                // Flying (Levitate) never sinks into the floor or a platform, even during a diving attack.
+                if (flying && inside && next.Y < ground)
+                {
+                    next.Y = ground;
+                    if (f.Velocity.Y < Fix.Zero) f.Velocity.Y = Fix.Zero;
+                }
             }
 
             f.Position = next;
@@ -1165,6 +1214,9 @@ namespace HEXBOUND.Simulation
             if ((IsVoluntary(b.Action) || Arena.IsWallAt(b.Position)) && Arena.IsInside(bBefore) && !Arena.IsInside(b.Position, EdgeMargin)) b.Position = Arena.ClampInside(b.Position, EdgeMargin);
             BlockByPillars(ref a, ca);
             BlockByPillars(ref b, cb);
+            FixVec3 ignored;
+            Arena.PushOutOfTerrain(ref a.Position, ca.Radius, out ignored, a.Grounded ? Arena.StepHeight : Fix.Milli(120), ca.Height);
+            Arena.PushOutOfTerrain(ref b.Position, cb.Radius, out ignored, b.Grounded ? Arena.StepHeight : Fix.Milli(120), cb.Height);
         }
     }
 }

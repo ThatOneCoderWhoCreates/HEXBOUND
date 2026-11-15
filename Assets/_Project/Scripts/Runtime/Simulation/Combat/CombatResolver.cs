@@ -47,6 +47,7 @@ namespace HEXBOUND.Simulation
                     HitboxDef hb = m.Hitboxes[i];
                     if (t < hb.Start || t > hb.End) continue;
                     StrikePillars(s, a, ref attacker, hb, ev);
+                    StrikeStructures(s, a, ref attacker, hb, ev);
                     int bit = 1 << hb.Group;
                     if (hb.RehitInterval > 0)
                     {
@@ -128,6 +129,9 @@ namespace HEXBOUND.Simulation
                 ProjectileDef def = GameContent.Projectiles[p.DefId];
                 if (!CanBeHit(ref defender, HitFlags.Radial)) continue;
                 if (!Overlaps(p.Position, def.ExplodeRadius, ref defender)) continue;
+                // Walls, roofs and bridge decks shield from the blast (Missile Rain does not reach under a roof).
+                CharacterDef dc = GameContent.GetCharacter(defender.CharacterId);
+                if (!Arena.ClearLine(p.Position, defender.Position + FixVec3.Up * (dc.Height * Fix.Half))) continue;
                 pending[count++] = new PendingHit
                 {
                     Attacker = p.Owner,
@@ -163,6 +167,52 @@ namespace HEXBOUND.Simulation
             if ((attacker.PillarHitMask & bit) != 0) return;
             attacker.PillarHitMask |= bit;
             DamagePillar(s, pillar, hb.Damage, a, ev);
+        }
+
+        /// <summary>A melee hitbox chips a breakable structure it touches, once per hitbox group per move.</summary>
+        private static void StrikeStructures(GameState s, int a, ref FighterState attacker, HitboxDef hb, EventBuffer ev)
+        {
+            ArenaLayout layout = Arena.Layout(s.Setup.Map);
+            if (layout.StructureHealth <= 0) return;
+            FixVec3 center = attacker.Position + FixVec3.FromAngle(attacker.Facing) * hb.Forward + FixVec3.Up * hb.Up;
+            int g = Arena.StructureNear(center, hb.Radius);
+            if (g < 0) return;
+            int bit = 1 << (g * 8 + (hb.Group & 7));
+            if ((attacker.StructureHitMask & bit) != 0) return;
+            attacker.StructureHitMask |= bit;
+            DamageStructure(s, g, hb.Damage, a, ev);
+        }
+
+        /// <summary>
+        /// Takes health from a breakable structure. At 0 it collapses: its blocks disappear, fighters on top fall, and
+        /// any fighter underneath its roof or deck is crushed (knocked out).
+        /// </summary>
+        public static void DamageStructure(GameState s, int group, int damage, int attacker, EventBuffer ev)
+        {
+            if (group < 0 || group >= s.StructureHealth.Length || s.StructureHealth[group] <= 0 || damage <= 0) return;
+            s.StructureHealth[group] -= damage;
+            FixVec3 at = Arena.StructureCenter(group);
+            if (s.StructureHealth[group] > 0)
+            {
+                if (ev != null) ev.Add(s.Tick, SimEventType.StructureHit, attacker, group, at);
+                return;
+            }
+            s.StructureHealth[group] = 0;
+            if (ev != null) ev.Add(s.Tick, SimEventType.StructureBreak, attacker, group, at);
+            // Who is under the roof or deck is found before the blocks vanish.
+            bool under0 = Arena.IsUnderStructure(group, s.Fighters[0].Position);
+            bool under1 = Arena.IsUnderStructure(group, s.Fighters[1].Position);
+            Arena.SetBrokenStructures(Arena.BrokenStructureMask(s));
+            for (int i = 0; i < 2; i++)
+            {
+                ref FighterState f = ref s.Fighters[i];
+                if (!(i == 0 ? under0 : under1)) continue;
+                if (f.Action == FighterAction.KO || f.Action == FighterAction.RingOut) continue;
+                if (ev != null) ev.Add(s.Tick, SimEventType.Crushed, i, group, f.Position);
+                DealDamage(s, ref s.Fighters[1 - i], ref f, i, f.Health, ev);
+                f.Velocity = FixVec3.Zero;
+            }
+            for (int i = 0; i < 2; i++) s.Fighters[i].Grounded = false;
         }
 
         /// <summary>Takes health from a breakable pillar; at 0 it breaks and stops blocking.</summary>

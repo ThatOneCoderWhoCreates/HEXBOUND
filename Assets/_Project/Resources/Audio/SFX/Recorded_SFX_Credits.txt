@@ -1,0 +1,10 @@
+Recorded sound effects used by WUSHEN (all CC0 1.0, public domain):
+
+rx_swinglight_*, rx_swingheavy_00-08, rx_throw_*: "Swishes Sound Pack" by qubodup, https://opengameart.org/content/swishes-sound-pack
+rx_swingheavy_09-18: "20 Sword Sound Effects (Attacks and Clashes)" by StarNinjas, https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes
+rx_clash_*, rx_parry_*: same pack (sword clashes) by StarNinjas
+rx_dodge_* (cloth), rx_pickup_* (knife draws), rx_drop_05, rx_step_05-14: "RPG Audio" by Kenney, https://kenney.nl/assets/rpg-audio
+rx_block_*, rx_drop_00-04, rx_step_00-04: "Impact Sounds" by Kenney, https://kenney.nl/assets/impact-sounds
+
+All clips were trimmed, converted to mono and loudness-matched (Tools/RecordedSfx).
+wind.ogg (Audio/Ambience) is synthesized for the game.

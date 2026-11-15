@@ -103,6 +103,12 @@ namespace HEXBOUND.Simulation
                     h.Add(layout.WallCenters[i]);
                     h.Add(layout.WallHalfWidths[i]);
                 }
+                for (int i = 0; i < layout.Terrain.Length; i++)
+                {
+                    TerrainBox b = layout.Terrain[i];
+                    h.Add(b.MinX); h.Add(b.MaxX); h.Add(b.MinZ); h.Add(b.MaxZ); h.Add(b.Height); h.Add(b.Ramp); h.Add(b.Bottom); h.Add(b.Group);
+                }
+                h.Add(layout.StructureHealth);
                 h.Add(layout.Spawn0);
                 h.Add(layout.Spawn1);
             }

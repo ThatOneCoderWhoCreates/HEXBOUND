@@ -162,7 +162,11 @@ namespace HEXBOUND.Presentation
             _sphere = PrimitiveMesh(PrimitiveType.Sphere);
             _cube = PrimitiveMesh(PrimitiveType.Cube);
             _cylinder = PrimitiveMesh(PrimitiveType.Cylinder);
+            Impact = new ImpactFx(_root);
         }
+
+        /// <summary>Dust, sparks and stone chips (also used by MatchPresenter for running footsteps).</summary>
+        public readonly ImpactFx Impact;
 
         public void SetFighters(FighterView a, FighterView b, int localIndex)
         {
@@ -173,6 +177,7 @@ namespace HEXBOUND.Presentation
 
         public void Clear()
         {
+            Impact.Clear();
             foreach (Fx fx in _pool)
             {
                 fx.Active = false;
@@ -223,6 +228,7 @@ namespace HEXBOUND.Presentation
         private void Play(SimEvent e)
         {
             Vector3 pos = FighterView.ToVector(e.Position);
+            Impact.SetMap(Arena.CurrentMap);
             switch (e.Type)
             {
                 case SimEventType.MoveStart:
@@ -251,6 +257,13 @@ namespace HEXBOUND.Presentation
                         Ring(pos, new Color(4f, 3f, 2f), 0.22f, 0.2f, 2.6f);
                         RaiseShake(Mathf.Clamp(e.Param / 200f, 0.25f, 0.8f));
                     }
+                    {
+                        Vector3 away = Vector3.zero;
+                        int attacker = e.Fighter == 0 ? 1 : 0;
+                        if (e.Fighter >= 0 && _fighters[attacker] != null) away = pos - _fighters[attacker].Visual.Root.position;
+                        away.y = Mathf.Max(away.y, 0f);
+                        Impact.Sparks(pos, away, heavy ? 22 : 10, heavy ? 11f : 7f, new Color(6f, 4.2f, 2f));
+                    }
                     _sfx.Play(heavy ? Sfx.HitHeavy : Sfx.Hit, 1f);
                     if (e.Type == SimEventType.GrabHit) _sfx.Play(Sfx.BodySlam, 0.9f);
                     RaisePopup(pos + Vector3.up * 0.4f, e.Param.ToString(), e.Type == SimEventType.GrabHit ? new Color(1f, 0.6f, 0.2f) : Color.white, heavy ? 1.3f : 1f);
@@ -261,12 +274,14 @@ namespace HEXBOUND.Presentation
                 }
                 case SimEventType.Blocked:
                     Flash(pos, new Color(0.6f, 1.6f, 3f), 0.1f, 0.15f, 1.2f);
+                    Impact.Sparks(pos, Vector3.zero, 12, 7f, new Color(3f, 4f, 6f));
                     _sfx.Play(Sfx.Block, 0.8f);
                     if (e.Param > 0) RaisePopup(pos + Vector3.up * 0.4f, e.Param.ToString(), new Color(0.6f, 0.75f, 1f), 0.8f);
                     break;
                 case SimEventType.Parried:
                     Flash(pos, new Color(5f, 5f, 5f), 0.18f, 0.2f, 2.2f);
                     Ring(pos, new Color(3f, 3f, 4f), 0.3f, 0.2f, 3f);
+                    Impact.Sparks(pos, Vector3.zero, 30, 12f, new Color(7f, 7f, 6f));
                     _sfx.Play(Sfx.Parry, 1f, 0f);
                     RaisePopup(pos + Vector3.up * 0.8f, "PARRY!", new Color(1f, 1f, 0.6f), 1.5f);
                     RaiseShake(0.35f);
@@ -283,6 +298,7 @@ namespace HEXBOUND.Presentation
                     break;
                 case SimEventType.ProjectileClash:
                     Burst(pos, new Color(5f, 5f, 5f), 14, 7f, 0.4f);
+                    Impact.Sparks(pos, Vector3.zero, 18, 9f, new Color(6f, 5f, 4f));
                     _sfx.Play(Sfx.Clash, 0.9f);
                     break;
                 case SimEventType.ProjectileExpire:
@@ -306,7 +322,10 @@ namespace HEXBOUND.Presentation
                     Flash(ground + Vector3.up * 0.4f, new Color(5f, 5f, 4f), 0.08f, radius * 0.2f, radius * 0.7f);
                     Ring(ground + Vector3.up * 0.06f, new Color(5f, 2.2f, 0.6f), 0.45f, 0.3f, radius * 2.2f);
                     Burst(ground + Vector3.up * 0.3f, new Color(6f, 2.6f, 0.6f), 22, 6f + radius * 2f, 0.55f, true);
-                    Burst(ground + Vector3.up * 0.5f, new Color(0.35f, 0.32f, 0.3f), 14, 2.5f + radius, 1.1f, true);
+                    Burst(ground + Vector3.up * 0.5f, new Color(0.35f, 0.32f, 0.3f), 6, 2.5f + radius, 1.1f, true);
+                    Impact.Dust(ground, 16 + (int)(radius * 4f), 2.2f + radius, 0.9f + radius * 0.4f, 1.6f);
+                    Impact.Chips(ground, 8 + (int)(radius * 3f), 6f + radius);
+                    Impact.Sparks(ground + Vector3.up * 0.3f, Vector3.up, 16, 10f, new Color(7f, 3.5f, 1f));
                     _sfx.Play(Sfx.Explosion, Mathf.Clamp01(0.55f + radius * 0.15f));
                     RaiseShake(Mathf.Clamp(radius * 0.22f, 0.2f, 0.9f));
                     break;
@@ -333,7 +352,8 @@ namespace HEXBOUND.Presentation
                     break;
                 case SimEventType.WeaponDrop:
                     _sfx.Play(Sfx.WeaponDrop, 0.8f);
-                    Burst(pos + Vector3.up * 0.1f, new Color(1.6f, 1.4f, 1.2f), 8, 2.5f, 0.35f);
+                    Burst(pos + Vector3.up * 0.1f, new Color(1.6f, 1.4f, 1.2f), 4, 2.5f, 0.35f);
+                    Impact.Dust(pos, 6, 1.2f, 0.35f, 0.6f);
                     break;
                 case SimEventType.NeedWeapon:
                     if (e.Fighter == _localIndex)
@@ -351,6 +371,7 @@ namespace HEXBOUND.Presentation
                     break;
                 case SimEventType.RecoilJump:
                     Ring(pos + Vector3.up * 0.05f, new Color(3f, 2f, 1f), 0.35f, 0.4f, 2.6f);
+                    Impact.Dust(pos, 10, 2.4f, 0.7f, 1.2f);
                     _sfx.Play(Sfx.Jump, 0.8f);
                     break;
                 case SimEventType.WeaponSwitch:
@@ -358,16 +379,18 @@ namespace HEXBOUND.Presentation
                     RaisePopup(pos + Vector3.up * 2.2f, e.Param == 0 ? "LAUNCHER" : "PISTOL", FighterColor(e.Fighter, 1.2f), 0.7f);
                     break;
                 case SimEventType.Jump:
-                    Ring(pos + Vector3.up * 0.05f, new Color(1.5f, 1.5f, 2f), 0.25f, 0.3f, 1.4f);
+                    Impact.Dust(pos, 5, 1.3f, 0.4f, 0.6f);
                     _sfx.Play(Sfx.Jump, 0.5f);
                     break;
                 case SimEventType.Land:
-                    Ring(pos + Vector3.up * 0.05f, new Color(1.2f, 1.2f, 1.6f), 0.25f, 0.3f, 1.6f);
                     bool slam = e.Param == (int)FighterAction.Launched || e.Param == (int)FighterAction.KO;
+                    Impact.Dust(pos, slam ? 16 : 7, slam ? 2.6f : 1.6f, slam ? 0.8f : 0.45f, slam ? 1.5f : 0.8f);
+                    if (slam) Impact.Chips(pos, 5, 3f);
                     _sfx.Play(slam ? Sfx.BodySlam : Sfx.Land, slam ? 0.9f : 0.6f);
                     break;
                 case SimEventType.Dodge:
                     Ring(pos + Vector3.up * 0.05f, FighterColor(e.Fighter, 2f), 0.2f, 0.2f, 1.3f);
+                    Impact.Dust(pos, 6, 1.8f, 0.45f, 0.7f);
                     _sfx.Play(Sfx.Dodge, 0.6f);
                     break;
                 case SimEventType.Teleport:
@@ -426,18 +449,41 @@ namespace HEXBOUND.Presentation
                 case SimEventType.PillarHit:
                     Burst(pos, new Color(1.6f, 0.8f, 3f), 8, 4f, 0.45f);
                     Flash(pos, new Color(1.6f, 0.8f, 3f), 0.15f, 0.4f, 1.4f);
+                    Impact.Sparks(pos, Vector3.zero, 10, 6f, new Color(3f, 1.8f, 6f));
                     _sfx.Play(Sfx.Clash, 0.45f, 0f);
                     break;
                 case SimEventType.PillarBreak:
                     Flash(pos, new Color(3f, 1.6f, 5f), 0.35f, 1f, 5f);
                     Ring(pos - Vector3.up * 0.9f, new Color(2f, 1f, 3.5f), 0.6f, 0.5f, 6f);
                     Burst(pos, new Color(1.8f, 0.9f, 3.2f), 40, 8f, 0.9f);
+                    Impact.Dust(new Vector3(pos.x, 0f, pos.z), 20, 3f, 1.1f, 1.6f);
                     _sfx.Play(Sfx.GuardBreak, 1f, 0f);
                     _sfx.Play(Sfx.Explosion, 0.5f, 0f);
                     RaiseShake(0.6f);
                     break;
+                case SimEventType.StructureHit:
+                    Impact.Chips(pos, 4, 4f);
+                    Impact.Dust(new Vector3(pos.x, pos.y - 0.3f, pos.z), 4, 1.2f, 0.6f, 0.8f);
+                    _sfx.Play(Sfx.Block, 0.35f, 0.15f);
+                    break;
+                case SimEventType.StructureBreak:
+                {
+                    Vector3 floor = new Vector3(pos.x, Mathf.Max(0f, pos.y - 4f), pos.z);
+                    Impact.Dust(floor, 40, 5f, 2.2f, 2.2f);
+                    Impact.Dust(pos, 20, 3f, 1.6f, 1.4f);
+                    Impact.Chips(pos, 30, 7f);
+                    _sfx.Play(Sfx.Explosion, 1f, 0f);
+                    _sfx.Play(Sfx.GuardBreak, 0.9f, 0f);
+                    _sfx.Play(Sfx.BodySlam, 1f, 0f);
+                    RaisePopup(pos + Vector3.up * 1.5f, "COLLAPSE!", new Color(1f, 0.75f, 0.45f), 1.6f);
+                    RaiseShake(1f);
+                    break;
+                }
+                case SimEventType.Crushed:
+                    RaisePopup(pos + Vector3.up * 2.2f, "CRUSHED!", new Color(1f, 0.35f, 0.3f), 1.6f);
+                    break;
                 case SimEventType.RingOut:
-                    if (Arena.CurrentMap == Arena.MapSanctuary)
+                    if (Arena.CurrentMap == Arena.MapSanctuary || Arena.CurrentMap == Arena.MapRuins)
                     {
                         // Falls into the sea of clouds: a soft white puff and a ring of mist.
                         Vector3 cloud = new Vector3(pos.x, -7f, pos.z);

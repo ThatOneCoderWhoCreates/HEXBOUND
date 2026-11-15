@@ -207,3 +207,29 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 - Vex's rockets: a direct hit deals 100 (was 220); Cluster Missile (Q) 100 direct and 50 splash (was 220 and 110). Rocket splash 60 and Missile Rain (up to 400) are unchanged.
 - Vex fires one rocket every 1.75 seconds (on the ground and in the air). The first shot fires the moment you click. While reloading, the crosshair turns gray and wider.
 
+## Update 2026-11-15: walk and run, higher jumps
+
+- Fighters walk by default (half speed). Hold Shift (gamepad: B) to run at full speed. A quick tap of Shift (released within 0.18 s) still dodges, so a dodge now happens when the key is released.
+- Jumps are higher (jump speed +8 to 9%): Kael and Bram 4.0 m, Rook 4.7 m, Lyra 3.0 m, Vex 5.8 m. The Beast jumps higher too.
+- Bots and the Beast always run when they move.
+- Fix: holding G now registers (the key was only read on the press), so hold-G throws work.
+
+## Update 2026-11-15: Sky Ruins map, graphics, recorded sounds, training checklist, smarter bots
+
+- **Sky Ruins (third map, MAP button):** a long cracked courtyard on a mountain top with real high ground. Two spawn platforms (north and south, 1.6 m high) with stairs down; four corner terraces (1.3 m) with stairs, two carrying ruined temples whose columns are solid; broken walls (1.4 to 1.6 m) and broken columns for cover; side alcoves behind low walls; a collapsed altar (0.8 m) in the middle. Fighters walk up stairs, step down low ledges, fall off higher ones, jump onto walls and platforms, and are stopped by walls and columns. Rockets, bolts and thrown weapons hit walls and platforms (cover works). Knocked off a cliff = ring-out; the stairs behind both spawns and the paths out of the side alcoves are invisible walls. Rock spires rise from the mist around it, snowy ridges stand far away, two Modly temples sit on neighboring peaks. Mountain wind ambience, rare birds.
+- **Camera:** moves in front of walls and platforms that would block the view, then eases back out.
+- **Graphics:** dust kicked up on landings, jumps, dodges, knockdowns, explosions and running footsteps (colored per map); hot spark streaks on hits, blocks, parries and clashes; stone chips from explosions and slams; a soft contact shadow under each fighter that stays on the floor or platform below while jumping; 4x anti-aliasing and 70 m shadows in built games.
+- **Sound:** weapon swings, throws, clashes, parries, blocks, dodges (cloth), weapon drops and pickups and footsteps are now real CC0 recordings (Kenney Impact Sounds and RPG Audio, qubodup swishes, StarNinjas swords).
+- **Training:** a "How to play" checklist on the left ticks off each basic control as you do it (F3 hides it).
+- **Bots:** jump when stuck at a wall or ledge or when the player stands on a platform above them, run back to pick up a dropped weapon, sometimes throw their weapon (hold G), and Vex bots fire rockets.
+- **Bug fixes:** a Levitating fighter's diving attack could sink through the floor (now stops on the floor); a fast fall onto a platform could slip inside it.
+
+## Update 2026-11-15: bigger Sky Ruins, solid roofs, breakable temples and walkways, run by default
+
+- Fighters run by default. Hold Shift (gamepad: B) to walk; a quick tap still dodges.
+- Sky Ruins is twice as wide and twice as long (4 times the area): about 44 x 52 m, spawn platforms out to 34 m, side alcoves out to 27 m. Spawns are 58 m apart.
+- Temple roofs are solid: you can jump onto them from the courtyard (top 4.0 m), walk under them on the terrace (underside 3.5 m) and bump your head on them.
+- New raised stone walkways on both sides (deck 2.6 to 3.2 m, with stairs): walk on top or underneath.
+- The two temples and the two walkways are breakable structures with 2000 health each. Weapon hits, projectiles and blasts damage them (a health bar shows while they take damage). At 0 they collapse into rubble: anyone underneath is crushed (knocked out), anyone on top falls.
+- Roofs and decks shield from attacks from above: Missile Rain hits the roof instead of a fighter sheltering underneath (and damages the roof). Blasts no longer hurt through walls, roofs or decks.
+

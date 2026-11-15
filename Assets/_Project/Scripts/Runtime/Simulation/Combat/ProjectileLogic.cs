@@ -136,6 +136,19 @@ namespace HEXBOUND.Simulation
             p.Exploding = true;
             if (ev != null) ev.Add(s.Tick, SimEventType.Explosion, p.Owner, p.DefId, p.Position);
             ProjectileDef def = GameContent.Projectiles[p.DefId];
+            if (def.ExplodeRadius > Fix.Zero && Arena.Layout(s.Setup.Map).StructureHealth > 0)
+            {
+                // The blast damages each breakable structure inside its radius once.
+                int done = 0;
+                for (int k = 0; k < Arena.MaxStructures; k++)
+                {
+                    int g = Arena.StructureNear(p.Position, def.ExplodeRadius);
+                    if (g < 0 || (done & (1 << g)) != 0) break;
+                    done |= 1 << g;
+                    CombatResolver.DamageStructure(s, g, def.ExplodeDamage, p.Owner, ev);
+                    if (s.StructureHealth[g] > 0) break;
+                }
+            }
             if (Arena.Layout(s.Setup.Map).PillarHealth <= 0 || def.ExplodeRadius <= Fix.Zero) return;
             // The blast chips every standing pillar inside its radius.
             for (int i = 0; i < Arena.Pillars.Length; i++)
@@ -159,16 +172,43 @@ namespace HEXBOUND.Simulation
                 if (!p.Active) continue;
                 ProjectileDef def = GameContent.Projectiles[p.DefId];
                 p.Velocity.Y = p.Velocity.Y - def.Gravity;
+                FixVec3 before = p.Position;
                 p.Position = p.Position + p.Velocity;
                 p.TicksLeft--;
                 int pillar = Arena.PillarAt(p.Position, def.Radius);
-                bool hitFloor = (p.Position.Y < Fix.Zero && Arena.IsInside(p.Position)) || pillar >= 0;
+                // Check the path in quarter steps, so fast shots cannot skip through a thin roof or wall.
+                int block = -1;
+                if (Arena.Terrain.Length > 0)
+                {
+                    FixVec3 step = (p.Position - before) * Fix.Milli(250);
+                    FixVec3 q = before;
+                    for (int k = 0; k < 4 && block < 0; k++)
+                    {
+                        FixVec3 nq = q + step;
+                        if (Arena.IsInside(nq)) block = Arena.TerrainIndexAt(nq);
+                        if (block >= 0) { p.Position = nq; before = q; }
+                        q = nq;
+                    }
+                }
+                bool hitTerrain = block >= 0;
+                if (hitTerrain && Arena.Terrain[block].Group >= 0) CombatResolver.DamageStructure(s, Arena.Terrain[block].Group, def.Damage, p.Owner, ev);
+                bool hitFloor = (p.Position.Y < Fix.Zero && Arena.IsInside(p.Position)) || pillar >= 0 || hitTerrain;
                 if (pillar >= 0 && def.ExplodeRadius <= Fix.Zero && Arena.Layout(s.Setup.Map).PillarHealth > 0) CombatResolver.DamagePillar(s, pillar, def.Damage, p.Owner, ev);
                 if (p.TicksLeft <= 0 || hitFloor || p.Position.Y < GameConfig.RingOutHeight)
                 {
                     p.Active = false;
                     if (def.ExplodeRadius > Fix.Zero)
                     {
+                        if (hitTerrain)
+                        {
+                            // Hit a wall, a platform or a roof: blow up where it struck (on top, or on the side or the
+                            // underside it came from).
+                            TerrainBox b = Arena.Terrain[block];
+                            Fix top = b.TopAt(p.Position.X, p.Position.Z);
+                            if (before.Y >= top) p.Position.Y = top;
+                            else if (b.Floating && before.Y <= b.Bottom) p.Position.Y = b.Bottom - Fix.Milli(50);
+                            else { p.Position.X = before.X; p.Position.Z = before.Z; }
+                        }
                         if (hitFloor && p.Position.Y < Fix.Zero) p.Position.Y = Fix.Zero;
                         Explode(s, ref p, ev);
                     }

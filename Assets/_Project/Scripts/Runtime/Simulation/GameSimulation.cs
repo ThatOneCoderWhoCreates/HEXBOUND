@@ -32,6 +32,7 @@ namespace HEXBOUND.Simulation
         {
             Arena.Use(s.Setup.Map);
             Arena.SetBroken(Arena.BrokenMask(s));
+            Arena.SetBrokenStructures(Arena.BrokenStructureMask(s));
             s.Tick++;
             if (s.Phase == MatchPhase.MatchOver)
             {

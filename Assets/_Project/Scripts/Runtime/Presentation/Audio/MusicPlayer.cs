@@ -18,7 +18,8 @@ namespace HEXBOUND.Presentation
     /// <summary>
     /// Music and ambience, crossfaded when the screen changes. Clips are loaded from Resources/Audio/Music
     /// by file name: intro, loading, flowinglava, fire. Celestial Sanctuary ambience is in Resources/Audio/Ambience:
-    /// stream (a soft water loop) and bird_1 to bird_5 (short distant calls played now and then). A missing file is skipped silently.
+    /// stream (a soft water loop) and bird_1 to bird_5 (short distant calls played now and then). Sky Ruins ambience: wind
+    /// (a soft mountain wind loop) and, more rarely, the same birds. A missing file is skipped silently.
     /// </summary>
     public sealed class MusicPlayer
     {
@@ -36,6 +37,7 @@ namespace HEXBOUND.Presentation
         private const float LavaMatchVolume = 0.06f;
         private const float FireMatchVolume = 0.35f;
         private const float StreamMatchVolume = 0.14f;
+        private const float WindMatchVolume = 0.16f;
         private const float BirdMinVolume = 0.06f;
         private const float BirdMaxVolume = 0.11f;
         private const float BirdMinGap = 14f;
@@ -47,6 +49,7 @@ namespace HEXBOUND.Presentation
         private readonly Layer _lava;
         private readonly Layer _fire;
         private readonly Layer _stream;
+        private readonly Layer _wind;
         private readonly Layer[] _layers;
         private readonly AudioClip[] _birds;
         private readonly AudioSource _birdSource;
@@ -65,7 +68,8 @@ namespace HEXBOUND.Presentation
             _lava = CreateLayer(go, "flowinglava");
             _fire = CreateLayer(go, "fire");
             _stream = CreateLayer(go, "stream", "Audio/Ambience/");
-            _layers = new[] { _intro, _loading, _lava, _fire, _stream };
+            _wind = CreateLayer(go, "wind", "Audio/Ambience/");
+            _layers = new[] { _intro, _loading, _lava, _fire, _stream, _wind };
 
             var birds = new System.Collections.Generic.List<AudioClip>();
             for (int i = 1; i <= 5; i++)
@@ -111,10 +115,12 @@ namespace HEXBOUND.Presentation
         {
             bool match = Mood == MusicMood.Match;
             bool sanctuary = _map == Arena.MapSanctuary;
+            bool ruins = _map == Arena.MapRuins;
             _intro.Target = Mood == MusicMood.Menu ? MenuVolume : 0f;
             _loading.Target = Mood == MusicMood.Lobby ? LobbyVolume : 0f;
-            _lava.Target = match && !sanctuary ? LavaMatchVolume : 0f;
-            _fire.Target = match && !sanctuary ? FireMatchVolume : 0f;
+            _lava.Target = match && !sanctuary && !ruins ? LavaMatchVolume : 0f;
+            _fire.Target = match && !sanctuary && !ruins ? FireMatchVolume : 0f;
+            _wind.Target = match && ruins ? WindMatchVolume : 0f;
             _stream.Target = match && sanctuary ? StreamMatchVolume : 0f;
 
             // Restart a track from the beginning when it fades in from silence.
@@ -142,10 +148,10 @@ namespace HEXBOUND.Presentation
             UpdateBirds(deltaTime, master);
         }
 
-        /// <summary>Now and then, a quiet bird call from somewhere off to the side (Celestial Sanctuary matches only).</summary>
+        /// <summary>Now and then, a quiet bird call from somewhere off to the side (Celestial Sanctuary and Sky Ruins matches).</summary>
         private void UpdateBirds(float deltaTime, float master)
         {
-            if (_birds.Length == 0 || Mood != MusicMood.Match || _map != Arena.MapSanctuary) return;
+            if (_birds.Length == 0 || Mood != MusicMood.Match || (_map != Arena.MapSanctuary && _map != Arena.MapRuins)) return;
             if (_secondCallTimer > 0f)
             {
                 _secondCallTimer -= deltaTime;
@@ -153,7 +159,8 @@ namespace HEXBOUND.Presentation
             }
             _birdTimer -= deltaTime;
             if (_birdTimer > 0f) return;
-            _birdTimer = Random.Range(BirdMinGap, BirdMaxGap);
+            // On the windy mountain top the birds are rarer.
+            _birdTimer = Random.Range(BirdMinGap, BirdMaxGap) * (_map == Arena.MapRuins ? 1.8f : 1f);
             PlayBird(master);
             // Sometimes the bird calls twice.
             if (Random.value < 0.3f) _secondCallTimer = Random.Range(0.6f, 1.4f);

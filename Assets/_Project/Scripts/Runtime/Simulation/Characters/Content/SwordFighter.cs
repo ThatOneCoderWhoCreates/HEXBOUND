@@ -18,7 +18,7 @@ namespace HEXBOUND.Simulation
                 Description = "Balanced swordsman. Closes distance fast and can switch to twin blades.",
                 MaxHealth = 1000,
                 MoveSpeed = ContentBuilder.M(105),
-                JumpVelocity = ContentBuilder.M(360),
+                JumpVelocity = ContentBuilder.M(390),
                 AirSpeed = ContentBuilder.M(95),
                 KnockbackScale = Fix.One,
                 ColorR = 90,

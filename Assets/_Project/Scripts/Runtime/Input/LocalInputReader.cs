@@ -10,15 +10,19 @@ namespace HEXBOUND.Input
     /// Movement is camera-relative: the camera yaw is applied here and the result is a world direction.
     ///
     /// Keyboard and mouse: WASD move, mouse camera, LMB light, RMB heavy, Q/E skills, R ultimate,
-    /// Shift dodge, Space jump, Left Ctrl block (tap just before a hit to parry), F grab, X recharge,
+    /// Shift tap dodge / hold walk (run otherwise), Space jump, Left Ctrl block (tap just before a hit to parry), F grab, X recharge,
     /// Z heal, C crouch, mouse wheel switch weapon, G throw or pick up weapon,
     /// Tab or middle mouse lock-on.
-    /// Gamepad: left stick move, right stick camera, X light, Y heavy, A jump, B dodge, LB block,
+    /// Gamepad: left stick move, right stick camera, X light, Y heavy, A jump, B tap dodge / hold walk, LB block,
     /// RB skill 1, RT skill 2, LT ultimate, D-pad down grab, D-pad up recharge, right stick click lock-on.
     /// </summary>
     public sealed class LocalInputReader
     {
         private InputButtons _pressedSinceTick;
+        private float _dodgeHeldFor = -1f;
+
+        /// <summary>Shift (gamepad B) released sooner than this is a dodge; held longer, the fighter walks.</summary>
+        public const float DodgeTapSeconds = 0.18f;
 
         /// <summary>Set false while menus are open so clicks don't attack.</summary>
         public bool GameplayEnabled = true;
@@ -26,8 +30,19 @@ namespace HEXBOUND.Input
         /// <summary>Call every rendered frame.</summary>
         public void Update()
         {
-            if (!GameplayEnabled) return;
+            if (!GameplayEnabled) { _dodgeHeldFor = -1f; return; }
             _pressedSinceTick |= ReadPressedThisFrame();
+
+            // Shift / B: a quick tap dodges (on release), holding it walks.
+            Keyboard kb = Keyboard.current;
+            Gamepad pad = Gamepad.current;
+            bool down = (kb != null && kb.leftShiftKey.isPressed) || (pad != null && pad.buttonEast.isPressed);
+            if (down) _dodgeHeldFor = _dodgeHeldFor < 0f ? 0f : _dodgeHeldFor + Time.unscaledDeltaTime;
+            else if (_dodgeHeldFor >= 0f)
+            {
+                if (_dodgeHeldFor < DodgeTapSeconds) _pressedSinceTick |= InputButtons.Dodge;
+                _dodgeHeldFor = -1f;
+            }
         }
 
         /// <summary>
@@ -51,6 +66,8 @@ namespace HEXBOUND.Input
             }
 
             InputButtons held = ReadHeld();
+            // Running is the default; holding Shift (gamepad B) walks.
+            if (_dodgeHeldFor < DodgeTapSeconds) held |= InputButtons.Run;
             frame.Buttons = held | _pressedSinceTick;
             _pressedSinceTick = InputButtons.None;
 
@@ -120,7 +137,6 @@ namespace HEXBOUND.Input
             {
                 if (kb.leftCtrlKey.isPressed) b |= InputButtons.Block;
                 if (kb.spaceKey.isPressed) b |= InputButtons.Jump;
-                if (kb.leftShiftKey.isPressed) b |= InputButtons.Dodge;
                 if (kb.qKey.isPressed) b |= InputButtons.Skill1;
                 if (kb.eKey.isPressed) b |= InputButtons.Skill2;
                 if (kb.rKey.isPressed) b |= InputButtons.Ultimate;
@@ -129,6 +145,7 @@ namespace HEXBOUND.Input
                 if (kb.zKey.isPressed) b |= InputButtons.Heal;
                 if (kb.cKey.isPressed) b |= InputButtons.Crouch;
                 if (kb.tabKey.isPressed) b |= InputButtons.LockOn;
+                if (kb.gKey.isPressed) b |= InputButtons.Throw;
             }
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
             {
@@ -141,7 +158,6 @@ namespace HEXBOUND.Input
                 if (pad.buttonWest.isPressed) b |= InputButtons.Light;
                 if (pad.buttonNorth.isPressed) b |= InputButtons.Heavy;
                 if (pad.buttonSouth.isPressed) b |= InputButtons.Jump;
-                if (pad.buttonEast.isPressed) b |= InputButtons.Dodge;
                 if (pad.leftShoulder.isPressed) b |= InputButtons.Block;
                 if (pad.rightShoulder.isPressed) b |= InputButtons.Skill1;
                 if (pad.rightTrigger.isPressed) b |= InputButtons.Skill2;
@@ -151,6 +167,7 @@ namespace HEXBOUND.Input
                 if (pad.dpad.left.isPressed) b |= InputButtons.Heal;
                 if (pad.leftStickButton.isPressed) b |= InputButtons.Crouch;
                 if (pad.rightStickButton.isPressed) b |= InputButtons.LockOn;
+                if (pad.selectButton.isPressed) b |= InputButtons.Throw;
             }
             return b;
         }
@@ -166,7 +183,6 @@ namespace HEXBOUND.Input
             {
                 if (kb.leftCtrlKey.wasPressedThisFrame) b |= InputButtons.Block;
                 if (kb.spaceKey.wasPressedThisFrame) b |= InputButtons.Jump;
-                if (kb.leftShiftKey.wasPressedThisFrame) b |= InputButtons.Dodge;
                 if (kb.qKey.wasPressedThisFrame) b |= InputButtons.Skill1;
                 if (kb.eKey.wasPressedThisFrame) b |= InputButtons.Skill2;
                 if (kb.rKey.wasPressedThisFrame) b |= InputButtons.Ultimate;
@@ -189,7 +205,6 @@ namespace HEXBOUND.Input
                 if (pad.buttonWest.wasPressedThisFrame) b |= InputButtons.Light;
                 if (pad.buttonNorth.wasPressedThisFrame) b |= InputButtons.Heavy;
                 if (pad.buttonSouth.wasPressedThisFrame) b |= InputButtons.Jump;
-                if (pad.buttonEast.wasPressedThisFrame) b |= InputButtons.Dodge;
                 if (pad.leftShoulder.wasPressedThisFrame) b |= InputButtons.Block;
                 if (pad.rightShoulder.wasPressedThisFrame) b |= InputButtons.Skill1;
                 if (pad.rightTrigger.wasPressedThisFrame) b |= InputButtons.Skill2;

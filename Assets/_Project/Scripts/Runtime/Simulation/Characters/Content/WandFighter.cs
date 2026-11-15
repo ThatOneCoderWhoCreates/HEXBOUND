@@ -20,7 +20,7 @@ namespace HEXBOUND.Simulation
                 Height = ContentBuilder.M(1700),
                 MoveSpeed = ContentBuilder.M(112),
                 AirSpeed = ContentBuilder.M(100),
-                JumpVelocity = ContentBuilder.M(310),
+                JumpVelocity = ContentBuilder.M(335),
                 KnockbackScale = ContentBuilder.M(1150),
                 ColorR = 175,
                 ColorG = 95,

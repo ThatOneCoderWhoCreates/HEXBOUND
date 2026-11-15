@@ -42,7 +42,7 @@ namespace HEXBOUND.Netcode
         public bool LocalReady { get; private set; }
         public int RemoteCharacter { get; private set; } = -1;
 
-        /// <summary>Host only: the arena to play on (Arena.MapLava or Arena.MapSanctuary), sent in the start message.</summary>
+        /// <summary>Host only: the arena to play on (Arena.MapLava, Arena.MapSanctuary or Arena.MapRuins), sent in the start message.</summary>
         public int Map { get; set; } = Arena.MapSanctuary;
         public bool RemoteReady { get; private set; }
 

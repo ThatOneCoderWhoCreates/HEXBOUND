@@ -51,6 +51,7 @@ namespace HEXBOUND.UI
         private readonly AbilitySlot[] _slots = new AbilitySlot[6];
         private readonly Text _netInfo;
         private readonly Text _trainingInfo;
+        private readonly Text _tutorial;
         private readonly Text _latency;
         private readonly RectTransform _crosshair;
         private readonly Image[] _crosshairParts;
@@ -117,7 +118,13 @@ namespace HEXBOUND.UI
             _crosshair.gameObject.SetActive(false);
             _prompt = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Prompt", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 150), new Vector2(700, 44)), string.Empty, 28, new Color(1f, 0.92f, 0.6f), TextAnchor.MiddleCenter, FontStyle.Bold);
             _trainingInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Training", new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(24, 20), new Vector2(620, 140)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerLeft);
-            _hint = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Hint", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 190), new Vector2(1860, 40)), "Esc pause  |  LMB light  RMB heavy  Q E skills  R ultimate  Shift dodge  Ctrl block/parry  F grab  X recharge  Z heal  C crouch (+LMB sweep, +RMB low guard)  Tab lock-on", 22, UIFactory.MutedText, TextAnchor.MiddleCenter);
+            _tutorial = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Tutorial", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(28, 40), new Vector2(760, 420)), string.Empty, 22, Color.white, TextAnchor.MiddleLeft);
+            _tutorial.supportRichText = true;
+            // Readable over bright skies and pale stone.
+            Outline outline = _tutorial.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(1.6f, -1.6f);
+            _hint = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Hint", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 190), new Vector2(1860, 40)), "Esc pause  |  LMB light  RMB heavy  Q E skills  R ultimate  Shift tap dodge, hold walk  Ctrl block/parry  F grab  X recharge  Z heal  C crouch (+LMB sweep, +RMB low guard)  Tab lock-on", 22, UIFactory.MutedText, TextAnchor.MiddleCenter);
 
             RectTransform reticle = UIFactory.Rect(_rootRect, "Lock Reticle", Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
             _lockReticle = UIFactory.Image(reticle, new Color(1f, 0.35f, 0.3f, 0.85f));
@@ -164,6 +171,12 @@ namespace HEXBOUND.UI
             if (reload > 0f) c = new Color(0.6f, 0.6f, 0.6f, 0.45f);
             for (int i = 0; i < _crosshairParts.Length; i++) _crosshairParts[i].color = c;
             _crosshair.localScale = Vector3.one * ((onTarget ? 0.85f : 1f) + reload * 0.6f);
+        }
+
+        /// <summary>Training checklist on the left side (rich text); empty hides it.</summary>
+        public void SetTutorial(string text)
+        {
+            if (_tutorial.text != text) _tutorial.text = text ?? string.Empty;
         }
 
         /// <summary>Short hint near the bottom of the screen (for example "G  Pick up weapon"); empty hides it.</summary>

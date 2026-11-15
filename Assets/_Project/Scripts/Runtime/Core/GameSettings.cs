@@ -15,11 +15,11 @@ namespace HEXBOUND.Core
         private const string BotDifficultyKey = "hexbound.botDifficulty";
         private const string MapKey = "hexbound.map";
 
-        /// <summary>Arena for offline matches and for hosting online: 0 Lava Pit, 1 Celestial Sanctuary.</summary>
+        /// <summary>Arena for offline matches and for hosting online: 0 Lava Pit, 1 Celestial Sanctuary, 2 Sky Ruins.</summary>
         public static int Map
         {
-            get { return Mathf.Clamp(PlayerPrefs.GetInt(MapKey, 1), 0, 1); }
-            set { PlayerPrefs.SetInt(MapKey, Mathf.Clamp(value, 0, 1)); }
+            get { return Mathf.Clamp(PlayerPrefs.GetInt(MapKey, 1), 0, 2); }
+            set { PlayerPrefs.SetInt(MapKey, Mathf.Clamp(value, 0, 2)); }
         }
 
         /// <summary>Versus Bot difficulty: 0 easy, 1 normal, 2 hard.</summary>

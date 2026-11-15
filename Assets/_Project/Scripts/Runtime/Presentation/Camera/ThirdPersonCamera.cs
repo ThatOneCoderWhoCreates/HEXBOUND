@@ -1,3 +1,4 @@
+using HEXBOUND.Simulation;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -84,8 +85,31 @@ namespace HEXBOUND.Presentation
             _focus = Vector3.SmoothDamp(_focus, focusTarget, ref _focusVelocity, 0.06f, Mathf.Infinity, deltaTime);
 
             Quaternion rot = Quaternion.Euler(Pitch, Yaw, 0f);
-            Vector3 pos = _focus - rot * Vector3.forward * Distance;
-            if (pos.y < 0.35f && Mathf.Abs(player.x) < 13.5f && Mathf.Abs(player.z) < 13.5f) pos.y = 0.35f;
+            Vector3 back = -(rot * Vector3.forward);
+            // Walls, columns and platforms (Sky Ruins) between the fighter and the camera: move the camera in front of
+            // them at once, and back out smoothly once the view is clear.
+            float allowed = Distance;
+            for (int i = 1; i <= 24; i++)
+            {
+                float d = Distance * i / 24f;
+                if (BlockedAt(_focus + back * d))
+                {
+                    allowed = Mathf.Max(0.9f, d - 0.4f);
+                    break;
+                }
+            }
+            _pull = allowed < _pull ? allowed : Mathf.MoveTowards(_pull, allowed, deltaTime * 5f);
+            Vector3 pos = _focus + back * Mathf.Min(Distance, _pull);
+            FixVec3 fp = ToFix(pos);
+            if (Arena.IsInside(fp))
+            {
+                float ground = Arena.GroundAt(fp).ToFloat();
+                if (pos.y < ground + 0.35f) pos.y = ground + 0.35f;
+            }
+            else if (pos.y < 0.35f && Mathf.Abs(player.x) < 13.5f && Mathf.Abs(player.z) < 13.5f)
+            {
+                pos.y = 0.35f;
+            }
 
             _shake = Mathf.MoveTowards(_shake, 0f, deltaTime * 2.5f);
             if (_shake > 0f)
@@ -96,6 +120,31 @@ namespace HEXBOUND.Presentation
 
             Camera.transform.position = pos;
             Camera.transform.rotation = Quaternion.LookRotation(_focus - pos, Vector3.up);
+        }
+
+        private float _pull = 100f;
+
+        private static FixVec3 ToFix(Vector3 p)
+        {
+            return new FixVec3(Fix.FromRaw((long)(p.x * 65536f)), Fix.FromRaw((long)(p.y * 65536f)), Fix.FromRaw((long)(p.z * 65536f)));
+        }
+
+        /// <summary>True if the point is inside (or within 0.2 m of) a solid block of the current map.</summary>
+        private static bool BlockedAt(Vector3 p)
+        {
+            TerrainBox[] t = Arena.Terrain;
+            if (t.Length == 0) return false;
+            for (int i = 0; i < t.Length; i++)
+            {
+                TerrainBox b = t[i];
+                if (!Arena.IsActive(ref b)) continue;
+                if (p.x < b.MinX.ToFloat() - 0.2f || p.x > b.MaxX.ToFloat() + 0.2f) continue;
+                if (p.z < b.MinZ.ToFloat() - 0.2f || p.z > b.MaxZ.ToFloat() + 0.2f) continue;
+                FixVec3 fp = ToFix(p);
+                float top = b.TopAt(fp.X, fp.Z).ToFloat();
+                if (p.y < top + 0.2f && (!b.Floating || p.y > b.Bottom.ToFloat() - 0.2f)) return true;
+            }
+            return false;
         }
 
         /// <summary>Snaps the camera behind a fighter facing the given yaw (used at round start).</summary>

@@ -48,6 +48,8 @@ namespace HEXBOUND.Simulation
 
         /// <summary>Health of each breakable pillar (crystal) this round; 0 = broken. Unused on maps whose pillars cannot break.</summary>
         public readonly int[] PillarHealth = new int[Arena.MaxPillars];
+        /// <summary>Health of each breakable structure of the map (Sky Ruins temples and bridges).</summary>
+        public readonly int[] StructureHealth = new int[Arena.MaxStructures];
 
         /// <summary>Ticks since each fighter was last hit (training refill).</summary>
         public int QuietTicks0;
@@ -73,6 +75,7 @@ namespace HEXBOUND.Simulation
             Array.Copy(other.Fighters, Fighters, Fighters.Length);
             Array.Copy(other.Projectiles, Projectiles, Projectiles.Length);
             Array.Copy(other.PillarHealth, PillarHealth, PillarHealth.Length);
+            Array.Copy(other.StructureHealth, StructureHealth, StructureHealth.Length);
         }
 
         public GameState Clone()
@@ -107,6 +110,7 @@ namespace HEXBOUND.Simulation
             h.Add(QuietTicks0);
             h.Add(QuietTicks1);
             for (int i = 0; i < PillarHealth.Length; i++) h.Add(PillarHealth[i]);
+            for (int i = 0; i < StructureHealth.Length; i++) h.Add(StructureHealth[i]);
             for (int i = 0; i < Fighters.Length; i++)
             {
                 AddFighter(ref h, ref Fighters[i]);
@@ -144,6 +148,7 @@ namespace HEXBOUND.Simulation
             h.Add(f.ComboStep);
             h.Add(f.HitMask);
             h.Add(f.PillarHitMask);
+            h.Add(f.StructureHitMask);
             h.Add(f.WeaponsHeld);
             h.Add(f.WeaponsThrown);
             h.Add(f.WeaponsDropped);

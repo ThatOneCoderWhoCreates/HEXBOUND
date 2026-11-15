@@ -27,6 +27,9 @@ namespace HEXBOUND.Simulation
         private InputButtons _pulse;
         private int _holdTicks;
         private int _strafeSign = 1;
+        private FixVec3 _lastPos;
+        private int _stuckTicks;
+        private int _throwHold;
 
         private static readonly Fix Close = Fix.Milli(2600);
         private static readonly Fix Mid = Fix.FromInt(7);
@@ -83,6 +86,37 @@ namespace HEXBOUND.Simulation
 
             frame.Buttons = _held | pulse;
 
+            // Hold G for a throw (released after ThrowHoldTicks so it throws instead of dropping).
+            if (_throwHold > 0)
+            {
+                _throwHold--;
+                if (_throwHold > 0) frame.Buttons |= InputButtons.Throw;
+            }
+
+            // Stuck against a wall or a ledge, or the opponent is up on a platform close by: jump.
+            Fix moved = (me.Position - _lastPos).HorizontalLength();
+            _lastPos = me.Position;
+            _stuckTicks = me.Action == FighterAction.Move && moved < Fix.Milli(15) ? _stuckTicks + 1 : 0;
+            bool oppAbove = opp.Grounded && opp.Position.Y - me.Position.Y > Fix.Milli(700) && dist < Fix.FromInt(5);
+            if (me.Grounded && (_stuckTicks > 8 || (oppAbove && Roll(0, 100) < 6)))
+            {
+                frame.Buttons |= InputButtons.Jump;
+                _stuckTicks = 0;
+            }
+
+            // Disarmed with the weapon lying somewhere: go and get it back.
+            bool armed = c.WeaponMask == 0 || (me.WeaponsHeld & (1 << me.WeaponMode)) != 0;
+            int dropped = me.WeaponsDropped & ~me.WeaponsHeld;
+            if (!armed && dropped != 0 && !oppThreat)
+            {
+                FixVec3 at = (dropped & 1) != 0 ? me.DropPos0 : me.DropPos1;
+                FixVec3 toDrop = (at - me.Position).Horizontal();
+                frame.HasMove = true;
+                frame.Buttons = (frame.Buttons & ~(InputButtons.Light | InputButtons.Heavy | InputButtons.Block)) | InputButtons.Run;
+                frame.MoveAngle = InputFrame.QuantizeAngle(toDrop.ToAngle());
+                return frame;
+            }
+
             int moveAngle = angleToOpp;
             bool wantsMove = true;
             if (nearEdge)
@@ -104,6 +138,7 @@ namespace HEXBOUND.Simulation
             }
 
             frame.HasMove = wantsMove;
+            if (wantsMove) frame.Buttons |= InputButtons.Run;
             frame.MoveAngle = InputFrame.QuantizeAngle(moveAngle);
             return frame;
         }
@@ -160,10 +195,17 @@ namespace HEXBOUND.Simulation
                 int r = Roll(0, 100);
                 if (r < 25 && CanUse(ref me, c.Skill1, me.CooldownSkill1)) _pulse = InputButtons.Skill1;
                 else if (r < 40 && CanUse(ref me, c.Skill2, me.CooldownSkill2)) _pulse = InputButtons.Skill2;
-                else if (r < 50 && (c.Weapon == "Wand" || c.Weapon == "Launcher")) _pulse = InputButtons.Heavy;
+                else if (r < 50 && c.Weapon == "Wand") _pulse = InputButtons.Heavy;
+                else if (r < 70 && c.Weapon == "Launcher") _pulse = InputButtons.Light;
+                else if (r < 73 && c.CanThrowWeapon && (me.WeaponsHeld & (1 << me.WeaponMode)) != 0 && _throwHold == 0) _throwHold = FighterLogic.ThrowHoldTicks + 2;
                 return;
             }
 
+            if (c.Weapon == "Launcher" && Roll(0, 100) < 45)
+            {
+                _pulse = InputButtons.Light;
+                return;
+            }
             if (CanUse(ref me, c.Skill2, me.CooldownSkill2) && c.Skill2.Spawns.Length > 0 && Roll(0, 100) < 30)
             {
                 _pulse = InputButtons.Skill2;

@@ -68,7 +68,14 @@ namespace HEXBOUND.Presentation
             for (int i = 0; i < 2; i++)
             {
                 Fighters[i].Sync(state, ref state.Fighters[i], alpha, deltaTime);
-                if (Fighters[i].StepThisFrame) _sfx.Play(Sfx.Footstep, i == _localIndex ? 0.35f : 0.22f, 0.1f);
+                if (Fighters[i].StepThisFrame)
+                {
+                    _sfx.Play(Sfx.Footstep, i == _localIndex ? 0.35f : 0.22f, 0.1f);
+                    // Running (not walking) kicks up a little dust.
+                    FixVec3 v = state.Fighters[i].Velocity;
+                    float speed = Mathf.Sqrt(v.X.ToFloat() * v.X.ToFloat() + v.Z.ToFloat() * v.Z.ToFloat()) * GameConfig.TickRate;
+                    if (speed > 4.5f) Effects.Impact.Dust(Fighters[i].Visual.Root.position, 2, 0.8f, 0.3f, 0.35f);
+                }
                 if (Fighters[i].ChestBeatThisFrame) _sfx.Play(Sfx.BodySlam, 0.55f, 0.15f);
             }
             if (events != null) Effects.HandleEvents(events, state.Tick);
