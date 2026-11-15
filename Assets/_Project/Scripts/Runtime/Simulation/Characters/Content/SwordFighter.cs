@@ -24,6 +24,7 @@ namespace HEXBOUND.Simulation
                 ColorR = 90,
                 ColorG = 150,
                 ColorB = 235,
+                ThrowDamage = 55,
             };
             common.ApplyTo(c);
 

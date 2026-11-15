@@ -200,7 +200,7 @@ namespace HEXBOUND.Netcode
             w.WriteByte((byte)count);
             for (int t = start; t <= LastLocalInputTick; t++)
             {
-                w.WriteUInt(t < InputDelay ? 0u : _localInputs[t % BufferSize].Pack());
+                w.WriteULong(t < InputDelay ? 0UL : _localInputs[t % BufferSize].Pack());
             }
             _sendUnreliable(w.Buffer, w.Length);
         }
@@ -220,7 +220,7 @@ namespace HEXBOUND.Netcode
 
                 for (int i = 0; i < count; i++)
                 {
-                    uint packed = r.ReadUInt();
+                    ulong packed = r.ReadULong();
                     if (r.Failed) return true;
                     int t = start + i;
                     if (t != LastConfirmedRemoteTick + 1) continue;

@@ -117,6 +117,10 @@ namespace HEXBOUND.Simulation
         public bool FromSky;
         /// <summary>Not destroyed by other projectiles (it destroys them instead), like the golden dragon.</summary>
         public bool Unstoppable;
+        /// <summary>Flies toward the player's crosshair (camera aim) when the input has one, with a little aim assist.</summary>
+        public bool UseAim;
+        /// <summary>Shot downward with the crosshair, the shooter is pushed up by up to this speed (recoil jump).</summary>
+        public Fix RecoilLift;
     }
 
     public sealed class MoveDef
@@ -124,6 +128,8 @@ namespace HEXBOUND.Simulation
         public int Id;
         public string Name;
         public int Total;
+        /// <summary>Throws the weapon in hand (its first projectile spawn carries the weapon).</summary>
+        public bool ThrowsWeapon;
         public HitboxDef[] Hitboxes = Array.Empty<HitboxDef>();
         public MotionDef[] Motions = Array.Empty<MotionDef>();
         public ProjectileSpawn[] Spawns = Array.Empty<ProjectileSpawn>();
@@ -203,6 +209,7 @@ namespace HEXBOUND.Simulation
         Lunge,
         /// <summary>Slide back with the weapon held sideways as a guard.</summary>
         GuardSlide,
+        Throw,
         /// <summary>Several quick thrusts in a row, one per hitbox.</summary>
         Strikes,
     }

@@ -68,6 +68,20 @@ namespace HEXBOUND.Simulation
         public byte WeaponMode;
         /// <summary>Ticks left in which a light attack continues the combo after the previous combo hit ended.</summary>
         public int ComboGrace;
+        /// <summary>Weapons in hand or on the back (bit 0 primary, bit 1 secondary).</summary>
+        public byte WeaponsHeld;
+        /// <summary>Weapons flying after a throw.</summary>
+        public byte WeaponsThrown;
+        /// <summary>Weapons lying on the floor, at DropPos0 / DropPos1 (also the last position while flying).</summary>
+        public byte WeaponsDropped;
+        public FixVec3 DropPos0;
+        public FixVec3 DropPos1;
+        /// <summary>Crosshair aim from the input this tick (see InputFrame).</summary>
+        public bool HasAim;
+        public byte AimYaw;
+        public sbyte AimPitch;
+        /// <summary>Recoil boosts from downward shots since last on the ground.</summary>
+        public byte RecoilJumps;
 
         public BuffId Buff;
         public int BuffTicks;

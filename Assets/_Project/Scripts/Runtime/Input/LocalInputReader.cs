@@ -11,7 +11,7 @@ namespace HEXBOUND.Input
     ///
     /// Keyboard and mouse: WASD move, mouse camera, LMB light, RMB heavy, Q/E skills, R ultimate,
     /// Shift dodge, Space jump, Left Ctrl block (tap just before a hit to parry), F grab, X recharge,
-    /// Z heal, C crouch, mouse wheel switch weapon,
+    /// Z heal, C crouch, mouse wheel switch weapon, G throw or pick up weapon,
     /// Tab or middle mouse lock-on.
     /// Gamepad: left stick move, right stick camera, X light, Y heavy, A jump, B dodge, LB block,
     /// RB skill 1, RT skill 2, LT ultimate, D-pad down grab, D-pad up recharge, right stick click lock-on.
@@ -30,8 +30,18 @@ namespace HEXBOUND.Input
             _pressedSinceTick |= ReadPressedThisFrame();
         }
 
-        /// <summary>Builds the input for one tick. cameraYawDegrees is the yaw of the local player's camera.</summary>
-        public InputFrame Sample(float cameraYawDegrees)
+        /// <summary>
+        /// Crosshair aim from the camera. The camera looks down at the fighter (about 14 degrees at rest), so its
+        /// pitch is mapped: resting camera = level shot, camera tilted down = shooting down, tilted up = shooting up.
+        /// </summary>
+        public static void AimFromCamera(float cameraYawDegrees, float cameraPitchDegrees, out float yawDegrees, out float pitchDegrees)
+        {
+            yawDegrees = Mathf.Repeat(cameraYawDegrees, 360f);
+            pitchDegrees = Mathf.Clamp((14f - cameraPitchDegrees) * 1.5f, -85f, 70f);
+        }
+
+        /// <summary>Builds the input for one tick from the local player's camera yaw and pitch.</summary>
+        public InputFrame Sample(float cameraYawDegrees, float cameraPitchDegrees = 14f)
         {
             var frame = new InputFrame();
             if (!GameplayEnabled)
@@ -53,6 +63,12 @@ namespace HEXBOUND.Input
                 frame.HasMove = true;
                 frame.MoveAngle = InputFrame.QuantizeAngle(simAngle);
             }
+
+            float aimYaw, aimPitch;
+            AimFromCamera(cameraYawDegrees, cameraPitchDegrees, out aimYaw, out aimPitch);
+            frame.HasAim = true;
+            frame.AimYaw = InputFrame.QuantizeAngle(Mathf.RoundToInt(aimYaw / 360f * FixMath.FullTurn));
+            frame.AimPitch = (sbyte)Mathf.Clamp(Mathf.RoundToInt(aimPitch / InputFrame.AimPitchStep), -127, 127);
             return frame;
         }
 
@@ -159,6 +175,7 @@ namespace HEXBOUND.Input
                 if (kb.zKey.wasPressedThisFrame) b |= InputButtons.Heal;
                 if (kb.cKey.wasPressedThisFrame) b |= InputButtons.Crouch;
                 if (kb.tabKey.wasPressedThisFrame) b |= InputButtons.LockOn;
+                if (kb.gKey.wasPressedThisFrame) b |= InputButtons.Throw;
             }
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
             {
@@ -182,6 +199,7 @@ namespace HEXBOUND.Input
                 if (pad.dpad.left.wasPressedThisFrame) b |= InputButtons.Heal;
                 if (pad.leftStickButton.wasPressedThisFrame) b |= InputButtons.Crouch;
                 if (pad.dpad.right.wasPressedThisFrame) b |= InputButtons.SwitchWeapon;
+                if (pad.selectButton.wasPressedThisFrame) b |= InputButtons.Throw;
                 if (pad.rightStickButton.wasPressedThisFrame) b |= InputButtons.LockOn;
             }
             return b;

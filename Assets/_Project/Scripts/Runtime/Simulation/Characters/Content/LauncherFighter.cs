@@ -30,11 +30,16 @@ namespace HEXBOUND.Simulation
                 ColorR = 70,
                 ColorG = 210,
                 ColorB = 190,
+                ThrowDamage = 60,
+                ThrowDamageSecondary = 30,
             };
             common.ApplyTo(c);
 
-            ProjectileDef missile = Missile(b, "Missile", 420, 60, 1800, 45);
-            ProjectileDef bigMissile = Missile(b, "Cluster Missile", 360, 70, 3200, 90);
+            // Rockets fly to the crosshair, a little slower than pistol rounds. Fired steeply downward they kick Vex up.
+            ProjectileDef missile = Missile(b, "Missile", 700, 50, 1800, 45);
+            missile.RecoilLift = ContentBuilder.M(420);
+            ProjectileDef bigMissile = Missile(b, "Cluster Missile", 450, 70, 3200, 90);
+            bigMissile.RecoilLift = ContentBuilder.M(500);
             bigMissile.ExplodeKnockbackH = ContentBuilder.M(300);
             bigMissile.ExplodeKnockbackV = ContentBuilder.M(300);
 
@@ -77,6 +82,7 @@ namespace HEXBOUND.Simulation
             bullet.Blockstun = 8;
             bullet.KnockbackH = ContentBuilder.M(50);
             bullet.AimAtTarget = true;
+            bullet.UseAim = true;
             bullet.VisualId = BulletVisual;
 
             ProjectileDef heavyBullet = b.Projectile("Quick-Draw Round");
@@ -90,6 +96,7 @@ namespace HEXBOUND.Simulation
             heavyBullet.KnockbackH = ContentBuilder.M(260);
             heavyBullet.KnockbackV = ContentBuilder.M(100);
             heavyBullet.AimAtTarget = true;
+            heavyBullet.UseAim = true;
             heavyBullet.VisualId = BulletVisual;
 
             // Launcher (primary): one missile per click; right click fires two.
@@ -178,6 +185,7 @@ namespace HEXBOUND.Simulation
 
             c.Abilities = new[]
             {
+                new AbilityInfo { Key = "LMB", Name = "Rocket", Description = "Fires at the crosshair (snaps onto the opponent when close). Aim at the floor to rocket-jump." },
                 new AbilityInfo { Key = "Wheel", Name = "Switch weapon", Description = "Missile launcher (explosive) or pistol (fast shots)." },
                 new AbilityInfo { Key = "Q", Name = "Cluster Missile", Description = "A slow missile with a huge blast. 150 magic." },
                 new AbilityInfo { Key = "E", Name = "Rocket Jump", Description = "Shoot the floor: fly high, blast anyone nearby. Your blasts never hurt you. 80 magic." },
@@ -200,6 +208,7 @@ namespace HEXBOUND.Simulation
             m.KnockbackV = ContentBuilder.M(140);
             m.Flags = HitFlags.Launch;
             m.AimAtTarget = true;
+            m.UseAim = true;
             m.ExplodeRadius = ContentBuilder.M(blastMilli);
             m.ExplodeDamage = blastDamage;
             m.ExplodeKnockbackH = ContentBuilder.M(180);

@@ -122,6 +122,7 @@ namespace HEXBOUND.Simulation
                 h.Add(p.Velocity);
                 h.Add(p.TicksLeft);
                 h.Add(p.SerialId);
+                h.Add(p.Carries);
             }
             return h.Value;
         }
@@ -143,6 +144,15 @@ namespace HEXBOUND.Simulation
             h.Add(f.ComboStep);
             h.Add(f.HitMask);
             h.Add(f.PillarHitMask);
+            h.Add(f.WeaponsHeld);
+            h.Add(f.WeaponsThrown);
+            h.Add(f.WeaponsDropped);
+            h.Add(f.DropPos0);
+            h.Add(f.DropPos1);
+            h.Add(f.HasAim ? 1 : 0);
+            h.Add(f.AimYaw);
+            h.Add(f.AimPitch);
+            h.Add(f.RecoilJumps);
             h.Add(f.RehitTimer);
             h.Add(f.CooldownSkill1);
             h.Add(f.CooldownSkill2);

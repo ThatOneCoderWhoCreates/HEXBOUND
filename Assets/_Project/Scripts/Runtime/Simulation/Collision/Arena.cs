@@ -11,6 +11,12 @@ namespace HEXBOUND.Simulation
         public Fix PillarHeight;
         /// <summary>Health of each pillar if attacks can break them; 0 means the pillars cannot break.</summary>
         public int PillarHealth;
+        /// <summary>
+        /// Stretches of the edge that are solid walls (no ring-out): center angle and half width, in simulation
+        /// angle units. Used where scenery continues past the edge, like the Sanctuary's gate stairs.
+        /// </summary>
+        public int[] WallCenters = new int[0];
+        public int[] WallHalfWidths = new int[0];
         public FixVec3 Spawn0;
         public FixVec3 Spawn1;
         public Fix MaxRadius;
@@ -104,6 +110,9 @@ namespace HEXBOUND.Simulation
                 PillarRadius = Fix.Milli(900),
                 PillarHeight = Fix.FromInt(4),
                 PillarHealth = 700,
+                // The gate stairs at the north opening (7.4 m wide): an invisible wall, nobody falls through the stairs.
+                WallCenters = new[] { 0 },
+                WallHalfWidths = new[] { FixMath.FullTurn * 20 / 360 },
                 Spawn0 = new FixVec3(Fix.Zero, Fix.Zero, Fix.FromInt(-5)),
                 Spawn1 = new FixVec3(Fix.Zero, Fix.Zero, Fix.FromInt(5)),
             };
@@ -152,6 +161,18 @@ namespace HEXBOUND.Simulation
                 if (s.PillarHealth[i] <= 0) mask |= 1 << i;
             }
             return mask;
+        }
+
+        /// <summary>True if the edge in the direction of the point (from the center) is a solid wall.</summary>
+        public static bool IsWallAt(FixVec3 p)
+        {
+            if (_current.WallCenters.Length == 0) return false;
+            int angle = FixMath.Atan2(p.X, p.Z);
+            for (int i = 0; i < _current.WallCenters.Length; i++)
+            {
+                if (FixMath.AbsAngleDelta(angle, _current.WallCenters[i]) <= _current.WallHalfWidths[i]) return true;
+            }
+            return false;
         }
 
         /// <summary>Index of a standing pillar touched by a sphere at the point, or -1.</summary>

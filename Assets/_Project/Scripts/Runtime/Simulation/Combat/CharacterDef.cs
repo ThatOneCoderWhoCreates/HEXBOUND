@@ -69,6 +69,28 @@ namespace HEXBOUND.Simulation
         public bool HeavyIsGuard;
         /// <summary>C + right mouse starts this move instead of the low guard (the mage's guard slide). Null keeps the low guard.</summary>
         public MoveDef CrouchGuardMove;
+
+        /// <summary>G throws the weapon in hand (false for fighters whose weapon is their fists, and the beast).</summary>
+        public bool CanThrowWeapon = true;
+        /// <summary>Throw moves for the primary and secondary weapon (built in GameContent).</summary>
+        public MoveDef ThrowPrimary;
+        public MoveDef ThrowSecondary;
+        /// <summary>Thrown weapon damage, primary and secondary.</summary>
+        public int ThrowDamage = 45;
+        public int ThrowDamageSecondary = 30;
+
+        /// <summary>Bare-handed moves, used while the weapon in hand has been thrown (shared by everyone).</summary>
+        public MoveDef[] FistChain;
+        public MoveDef FistHeavy;
+        public MoveDef FistAirLight;
+        public MoveDef FistAirHeavy;
+        public MoveDef FistCrouchAttack;
+
+        /// <summary>Bit per weapon the fighter starts with: 1 (primary) or 3 (primary and secondary).</summary>
+        public int WeaponMask
+        {
+            get { return SecondaryWeapon != null ? 3 : 1; }
+        }
         /// <summary>Moves used with the secondary weapon (null keeps the primary move).</summary>
         public MoveDef[] AltLightChain;
         public MoveDef AltHeavy;

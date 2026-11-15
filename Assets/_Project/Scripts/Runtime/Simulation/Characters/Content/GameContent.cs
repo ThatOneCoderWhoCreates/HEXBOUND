@@ -30,6 +30,17 @@ namespace HEXBOUND.Simulation
                 LauncherFighter.Build(b, common),
                 BeastFighter.Build(b, common),
             };
+            // Weapon throws (G), built after every fighter so earlier ids never change.
+            for (int i = 0; i < Characters.Length; i++)
+            {
+                CharacterDef c = Characters[i];
+                if (!c.CanThrowWeapon) continue;
+                c.ThrowPrimary = CommonMoves.ThrowMove(b, "Throw " + c.Weapon, CommonMoves.ThrownWeapon(b, "Thrown " + c.Weapon, c.ThrowDamage));
+                if (c.SecondaryWeapon != null)
+                {
+                    c.ThrowSecondary = CommonMoves.ThrowMove(b, "Throw " + c.SecondaryWeapon, CommonMoves.ThrownWeapon(b, "Thrown " + c.SecondaryWeapon, c.ThrowDamageSecondary));
+                }
+            }
             for (int i = 0; i < Characters.Length; i++)
             {
                 Characters[i].Id = i;
@@ -87,6 +98,11 @@ namespace HEXBOUND.Simulation
                 h.Add(layout.PillarRadius);
                 h.Add(layout.PillarHeight);
                 h.Add(layout.PillarHealth);
+                for (int i = 0; i < layout.WallCenters.Length; i++)
+                {
+                    h.Add(layout.WallCenters[i]);
+                    h.Add(layout.WallHalfWidths[i]);
+                }
                 h.Add(layout.Spawn0);
                 h.Add(layout.Spawn1);
             }
@@ -94,6 +110,7 @@ namespace HEXBOUND.Simulation
             {
                 MoveDef m = Moves[i];
                 h.Add(m.Total);
+                h.Add(m.ThrowsWeapon ? 1 : 0);
                 h.Add(m.CancelStart);
                 h.Add(m.CancelEnd);
                 h.Add(m.InvulnStart);
@@ -148,6 +165,8 @@ namespace HEXBOUND.Simulation
                 h.Add(p.FromSky ? 1 : 0);
                 h.Add(p.SpawnUp);
                 h.Add(p.SpawnForward);
+                h.Add(p.UseAim ? 1 : 0);
+                h.Add(p.RecoilLift);
             }
             return h.Value;
         }

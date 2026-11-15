@@ -29,3 +29,9 @@ Unity Transport, Unity Multiplayer Services, Input System, Universal Render Pipe
 
 ## Celestial Sanctuary map
 Concept, layout and models by Pixtel Studios. Models made with Modly (temple gate, cherry tree, floating island, celestial arch, waterfall cliff, shrine lantern, banner, stone pillar).
+
+## Sounds made for the game
+The battle sound set (wx_ files) and the Celestial Sanctuary ambience (stream and birds) were generated for WUSHEN by Pixtel Studios; no third-party audio.
+
+## Vex
+Vex, her missile launcher, rocket and pistol: models by Pixtel Studios, made with Modly. A skeleton was added so she can be animated.

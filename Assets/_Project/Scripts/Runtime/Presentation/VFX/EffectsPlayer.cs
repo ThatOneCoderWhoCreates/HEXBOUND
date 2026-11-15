@@ -229,7 +229,9 @@ namespace HEXBOUND.Presentation
                 {
                     MoveDef m = GameContent.GetMove(e.Param);
                     if (m == null) break;
-                    if (m.Pose == MovePose.Cast || m.Pose == MovePose.Channel) _sfx.Play(Sfx.Cast, 0.6f);
+                    if (m.Pose == MovePose.Aim || m.Pose == MovePose.Shoot) { }
+                    else if (m.Pose == MovePose.Throw) _sfx.Play(Sfx.SwingHeavy, 0.7f);
+                    else if (m.Pose == MovePose.Cast || m.Pose == MovePose.Channel) _sfx.Play(Sfx.Cast, 0.6f);
                     else if (m.Pose == MovePose.Overhead || m.Pose == MovePose.Slam || m.Pose == MovePose.Spin) _sfx.Play(Sfx.SwingHeavy, 0.8f);
                     else _sfx.Play(Sfx.SwingLight, 0.7f);
                     if (m.Slot == CooldownSlot.Ultimate) Burst(pos + Vector3.up, FighterColor(e.Fighter, 4f), 18, 6f, 0.5f);
@@ -309,6 +311,41 @@ namespace HEXBOUND.Presentation
                     RaiseShake(Mathf.Clamp(radius * 0.22f, 0.2f, 0.9f));
                     break;
                 }
+                case SimEventType.ProjectileSpawn:
+                {
+                    ProjectileDef def = e.Param >= 0 && e.Param < GameContent.Projectiles.Length ? GameContent.Projectiles[e.Param] : null;
+                    if (def == null) break;
+                    if (def.VisualId == LauncherFighter.MissileVisual)
+                    {
+                        _sfx.Play(Sfx.RocketLaunch, 0.9f);
+                        Flash(pos, new Color(6f, 3.5f, 1.2f), 0.12f, 0.4f, 1.6f);
+                        Burst(pos, new Color(2f, 1.6f, 1.2f), 10, 3f, 0.6f, true);
+                    }
+                    else if (def.VisualId == LauncherFighter.BulletVisual)
+                    {
+                        _sfx.Play(Sfx.PistolShot, 0.8f);
+                        Flash(pos, new Color(7f, 5f, 2f), 0.06f, 0.15f, 0.7f);
+                    }
+                    break;
+                }
+                case SimEventType.WeaponThrow:
+                    _sfx.Play(Sfx.WeaponThrow, 0.9f);
+                    break;
+                case SimEventType.WeaponDrop:
+                    _sfx.Play(Sfx.WeaponDrop, 0.8f);
+                    Burst(pos + Vector3.up * 0.1f, new Color(1.6f, 1.4f, 1.2f), 8, 2.5f, 0.35f);
+                    break;
+                case SimEventType.WeaponLost:
+                    RaisePopup(pos + Vector3.up * 1.5f, "WEAPON LOST", FighterColor(e.Fighter, 1.2f), 0.9f);
+                    break;
+                case SimEventType.WeaponPickup:
+                    _sfx.Play(Sfx.WeaponPickup, 0.9f);
+                    Ring(pos + Vector3.up * 0.05f, FighterColor(e.Fighter, 3f), 0.3f, 0.3f, 1.8f);
+                    break;
+                case SimEventType.RecoilJump:
+                    Ring(pos + Vector3.up * 0.05f, new Color(3f, 2f, 1f), 0.35f, 0.4f, 2.6f);
+                    _sfx.Play(Sfx.Jump, 0.8f);
+                    break;
                 case SimEventType.WeaponSwitch:
                     if (e.Fighter == _localIndex) _sfx.Play(Sfx.UiClick, 0.7f, 0f);
                     RaisePopup(pos + Vector3.up * 2.2f, e.Param == 0 ? "LAUNCHER" : "PISTOL", FighterColor(e.Fighter, 1.2f), 0.7f);
@@ -591,16 +628,57 @@ namespace HEXBOUND.Presentation
             go.transform.SetParent(_root, false);
             float r = def.Radius.ToFloat();
             GameObject core;
+            if (def.VisualId == CommonMoves.ThrownVisual)
+            {
+                // The fighter's view draws the spinning weapon itself; only a faint air trail here.
+                TrailRenderer air = go.AddComponent<TrailRenderer>();
+                air.time = 0.12f;
+                air.startWidth = 0.25f;
+                air.endWidth = 0f;
+                air.sharedMaterial = MaterialFactory.Additive(new Color(1.2f, 1.2f, 1.4f, 0.4f));
+                air.shadowCastingMode = ShadowCastingMode.Off;
+                return new ProjectileView { Go = go, Trail = air, SerialId = p.SerialId, Oriented = true };
+            }
             if (def.VisualId == LauncherFighter.MissileVisual)
             {
-                // Missile: dark body with a glowing nose; flame and smoke trail behind.
-                core = MaterialFactory.Primitive(PrimitiveType.Capsule, go.transform, MaterialFactory.Lit(new Color(0.18f, 0.2f, 0.22f), 0.6f, 0.7f), "Body");
-                core.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-                core.transform.localScale = new Vector3(0.22f, 0.38f, 0.22f);
-                GameObject nose = MaterialFactory.Primitive(PrimitiveType.Sphere, go.transform, MaterialFactory.Glow(c), "Nose");
-                nose.transform.localPosition = new Vector3(0f, 0f, 0.34f);
-                nose.transform.localScale = Vector3.one * 0.2f;
-                nose.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                // Missile: the rocket model (or a dark capsule with a glowing nose); flame and smoke trail behind.
+                GameObject rocket = Resources.Load<GameObject>("Fighters/VexRocket");
+                if (rocket != null)
+                {
+                    GameObject model = UnityEngine.Object.Instantiate(rocket, go.transform, false);
+                    foreach (Collider col in model.GetComponentsInChildren<Collider>(true)) UnityEngine.Object.Destroy(col);
+                    // After import the rocket's nose points along -X; turn it to +Z (the flight direction).
+                    model.transform.localRotation = Quaternion.FromToRotation(Vector3.left, Vector3.forward);
+                    Bounds rb = new Bounds();
+                    bool any = false;
+                    foreach (Renderer rr in model.GetComponentsInChildren<Renderer>(true))
+                    {
+                        if (!any) { rb = rr.bounds; any = true; }
+                        else rb.Encapsulate(rr.bounds);
+                        rr.shadowCastingMode = ShadowCastingMode.Off;
+                    }
+                    if (any)
+                    {
+                        model.transform.localScale = Vector3.one * (FighterRigBuilder.RocketLength / Mathf.Max(rb.size.x, rb.size.y, rb.size.z, 1e-4f));
+                        any = false;
+                        foreach (Renderer rr in model.GetComponentsInChildren<Renderer>(true))
+                        {
+                            if (!any) { rb = rr.bounds; any = true; }
+                            else rb.Encapsulate(rr.bounds);
+                        }
+                        model.transform.position += go.transform.position - rb.center;
+                    }
+                }
+                else
+                {
+                    core = MaterialFactory.Primitive(PrimitiveType.Capsule, go.transform, MaterialFactory.Lit(new Color(0.18f, 0.2f, 0.22f), 0.6f, 0.7f), "Body");
+                    core.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                    core.transform.localScale = new Vector3(0.22f, 0.38f, 0.22f);
+                    GameObject nose = MaterialFactory.Primitive(PrimitiveType.Sphere, go.transform, MaterialFactory.Glow(c), "Nose");
+                    nose.transform.localPosition = new Vector3(0f, 0f, 0.34f);
+                    nose.transform.localScale = Vector3.one * 0.2f;
+                    nose.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                }
                 GameObject flame = MaterialFactory.Primitive(PrimitiveType.Sphere, go.transform, MaterialFactory.Glow(new Color(6f, 2.6f, 0.6f)), "Flame");
                 flame.transform.localPosition = new Vector3(0f, 0f, -0.42f);
                 flame.transform.localScale = new Vector3(0.2f, 0.2f, 0.4f);

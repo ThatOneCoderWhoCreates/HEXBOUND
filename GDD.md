@@ -183,3 +183,12 @@ Progression, cosmetics, store, chat, spectating, replays, ranked, cross-platform
 - Optional Modly models (TempleGate, CherryTree, CelestialArch, Lantern, FloatingIsland, ArcaneCrystal) in Resources/Arena/Sanctuary/Models replace the built-in pieces.
 
 - Breakable crystals (Sanctuary): each crystal pillar has 700 health. Melee hits (once per hit), projectiles and blasts chip it; a health bar shows for a few seconds after each hit and the crystal dims and shakes. At 0 it shatters, stops blocking and leaves a stub. All crystals are whole again at the start of every round. Lava Pit spikes cannot break.
+
+## Update 2026-11-15: weapon throw, fists, Vex aiming and models
+
+- G (gamepad: Select) throws the weapon in hand. It flies in a shallow arc, hits like a projectile (Kael 55, Lyra 35, Bram 60, Vex launcher 60 and pistol 30) and lands on the floor; if it flies off the arena it is lost for the round. Standing within 1.8 m of your own dropped weapon, G picks it up. Rook (his fists are his weapon) and the Beast cannot throw.
+- Without the weapon in hand: light attacks are a jab, cross, hook combo (18, 22, 30), right click a haymaker (40), air punch and dive punch, C + left click the low sweep; Q, E and R still work. Running and air movement are 20% faster. Everything returns at the start of each round.
+- Vex: throwing the launcher switches to the pistol if she still has it; with both thrown she fights bare-handed.
+- Vex aiming: a crosshair shows where rockets and pistol shots go (camera aim; it snaps red onto the opponent within 7 degrees). Rockets fly at 42 m/s (pistol rounds 54 m/s). Aiming steeply down (35 degrees or more) and firing kicks Vex up (rocket jump), up to twice before landing; her own blasts never hurt her.
+- Vex model (Modly): launcher on her right shoulder in launcher mode, slung diagonally on her back in pistol mode, pistol in the right hand; rockets use the rocket model.
+- Celestial Sanctuary: the edge in front of the gate stairs is an invisible wall (no ring-out there); the bridge openings still ring out.

@@ -12,5 +12,7 @@ namespace HEXBOUND.Simulation
         public int SerialId;
         /// <summary>The projectile just exploded this tick; its blast is resolved by CombatResolver, then cleared.</summary>
         public bool Exploding;
+        /// <summary>A thrown weapon: 1 = owner's primary, 2 = secondary, 0 = an ordinary projectile.</summary>
+        public byte Carries;
     }
 }

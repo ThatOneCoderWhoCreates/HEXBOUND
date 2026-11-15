@@ -30,10 +30,15 @@ namespace HEXBOUND.Presentation
         BodySlam,
         ProjectileHit,
         Clash,
+        RocketLaunch,
+        PistolShot,
+        WeaponThrow,
+        WeaponDrop,
+        WeaponPickup,
     }
 
     /// <summary>
-    /// Sound effects. Recorded clips are loaded from Resources/Audio/SFX (Kenney Impact Sounds, CC0),
+    /// Sound effects. Clips are loaded from Resources/Audio/SFX (Kenney Impact Sounds, CC0, and the game's own wx_ battle set),
     /// matched by file name prefix, with a random variant each time. Any sound without a recorded clip
     /// uses a placeholder synthesized in code.
     /// </summary>
@@ -46,20 +51,37 @@ namespace HEXBOUND.Presentation
         /// <summary>Which recorded clips (file name prefix) are used for each sound.</summary>
         private static readonly KeyValuePair<Sfx, string>[] PackMap =
         {
+            // Recorded impacts (Kenney Impact Sounds, CC0).
             new KeyValuePair<Sfx, string>(Sfx.Hit, "impactPunch_medium"),
             new KeyValuePair<Sfx, string>(Sfx.HitHeavy, "impactPunch_heavy"),
             new KeyValuePair<Sfx, string>(Sfx.Block, "impactMetal_medium"),
-            new KeyValuePair<Sfx, string>(Sfx.Parry, "impactBell_heavy"),
-            new KeyValuePair<Sfx, string>(Sfx.GuardBreak, "impactGlass_heavy"),
-            new KeyValuePair<Sfx, string>(Sfx.Jump, "impactSoft_medium"),
             new KeyValuePair<Sfx, string>(Sfx.Land, "impactSoft_heavy"),
             new KeyValuePair<Sfx, string>(Sfx.Footstep, "footstep_concrete"),
             new KeyValuePair<Sfx, string>(Sfx.BodySlam, "impactPlank_medium"),
-            new KeyValuePair<Sfx, string>(Sfx.ProjectileHit, "impactGlass_light"),
-            new KeyValuePair<Sfx, string>(Sfx.Clash, "impactGlass_medium"),
             new KeyValuePair<Sfx, string>(Sfx.UiClick, "impactGeneric_light"),
             new KeyValuePair<Sfx, string>(Sfx.UiBack, "impactWood_light"),
             new KeyValuePair<Sfx, string>(Sfx.Denied, "impactTin_medium"),
+            // WUSHEN battle set (designed for the game, Tools/BattleSfx): weapon whooshes, steel, blasts, magic, war drum.
+            new KeyValuePair<Sfx, string>(Sfx.SwingLight, "wx_swinglight_"),
+            new KeyValuePair<Sfx, string>(Sfx.SwingHeavy, "wx_swingheavy_"),
+            new KeyValuePair<Sfx, string>(Sfx.Dodge, "wx_dodge_"),
+            new KeyValuePair<Sfx, string>(Sfx.Jump, "wx_jump_"),
+            new KeyValuePair<Sfx, string>(Sfx.Parry, "wx_parry_"),
+            new KeyValuePair<Sfx, string>(Sfx.Clash, "wx_clash_"),
+            new KeyValuePair<Sfx, string>(Sfx.GuardBreak, "wx_guardbreak_"),
+            new KeyValuePair<Sfx, string>(Sfx.ProjectileHit, "wx_projectilehit_"),
+            new KeyValuePair<Sfx, string>(Sfx.Explosion, "wx_explosion_"),
+            new KeyValuePair<Sfx, string>(Sfx.Cast, "wx_cast_"),
+            new KeyValuePair<Sfx, string>(Sfx.Magic, "wx_magic_"),
+            new KeyValuePair<Sfx, string>(Sfx.Teleport, "wx_teleport_"),
+            new KeyValuePair<Sfx, string>(Sfx.Buff, "wx_buff_"),
+            new KeyValuePair<Sfx, string>(Sfx.Ko, "wx_ko_"),
+            new KeyValuePair<Sfx, string>(Sfx.Announce, "wx_drum_"),
+            new KeyValuePair<Sfx, string>(Sfx.RocketLaunch, "wx_rocket_"),
+            new KeyValuePair<Sfx, string>(Sfx.PistolShot, "wx_pistol_"),
+            new KeyValuePair<Sfx, string>(Sfx.WeaponThrow, "wx_throw_"),
+            new KeyValuePair<Sfx, string>(Sfx.WeaponDrop, "wx_weapondrop_"),
+            new KeyValuePair<Sfx, string>(Sfx.WeaponPickup, "wx_pickup_"),
         };
         private readonly AudioSource[] _sources;
         private int _next;

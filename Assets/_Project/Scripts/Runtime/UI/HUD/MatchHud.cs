@@ -52,6 +52,9 @@ namespace HEXBOUND.UI
         private readonly Text _netInfo;
         private readonly Text _trainingInfo;
         private readonly Text _latency;
+        private readonly RectTransform _crosshair;
+        private readonly Image[] _crosshairParts;
+        private readonly Text _prompt;
         private readonly Image _lockReticle;
         private readonly Text _buffText;
         private readonly RectTransform _rootRect;
@@ -99,6 +102,20 @@ namespace HEXBOUND.UI
 
             _netInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Net", new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-24, 20), new Vector2(520, 110)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerRight);
             _latency = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Latency", new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -146), new Vector2(300, 36)), string.Empty, 26, new Color(0.3f, 1f, 0.4f), TextAnchor.MiddleLeft, FontStyle.Bold);
+
+            // Crosshair: four short bars and a dot, moved to wherever the aimed weapon points.
+            _crosshair = UIFactory.Rect(_rootRect, "Crosshair", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(60, 60));
+            _crosshairParts = new Image[5];
+            Vector2[] offsets = { new Vector2(0, 14), new Vector2(0, -14), new Vector2(14, 0), new Vector2(-14, 0), Vector2.zero };
+            Vector2[] sizes = { new Vector2(3, 12), new Vector2(3, 12), new Vector2(12, 3), new Vector2(12, 3), new Vector2(4, 4) };
+            for (int i = 0; i < 5; i++)
+            {
+                RectTransform bar = UIFactory.Rect(_crosshair, "Part", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), offsets[i], sizes[i]);
+                _crosshairParts[i] = UIFactory.Image(bar, Color.white);
+                _crosshairParts[i].raycastTarget = false;
+            }
+            _crosshair.gameObject.SetActive(false);
+            _prompt = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Prompt", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 150), new Vector2(700, 44)), string.Empty, 28, new Color(1f, 0.92f, 0.6f), TextAnchor.MiddleCenter, FontStyle.Bold);
             _trainingInfo = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Training", new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(24, 20), new Vector2(620, 140)), string.Empty, 22, UIFactory.MutedText, TextAnchor.LowerLeft);
             _hint = UIFactory.LabelOn(UIFactory.Rect(_rootRect, "Hint", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 190), new Vector2(1860, 40)), "Esc pause  |  LMB light  RMB heavy  Q E skills  R ultimate  Shift dodge  Ctrl block/parry  F grab  X recharge  Z heal  C crouch (+LMB sweep, +RMB low guard)  Tab lock-on", 22, UIFactory.MutedText, TextAnchor.MiddleCenter);
 
@@ -135,6 +152,24 @@ namespace HEXBOUND.UI
         }
 
         /// <summary>Shows the online round-trip latency in the top-left corner. Pass a negative value to hide it (offline).</summary>
+        /// <summary>Crosshair for aimed weapons, at a screen point (pixels). Red when aim assist has the opponent.</summary>
+        public void SetCrosshair(bool show, Vector2 screenPoint, bool onTarget)
+        {
+            if (_crosshair.gameObject.activeSelf != show) _crosshair.gameObject.SetActive(show);
+            if (!show) return;
+            Vector2 local;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_rootRect, screenPoint, null, out local)) _crosshair.anchoredPosition = local;
+            Color c = onTarget ? new Color(1f, 0.3f, 0.25f, 0.95f) : new Color(1f, 1f, 1f, 0.85f);
+            for (int i = 0; i < _crosshairParts.Length; i++) _crosshairParts[i].color = c;
+            _crosshair.localScale = Vector3.one * (onTarget ? 0.85f : 1f);
+        }
+
+        /// <summary>Short hint near the bottom of the screen (for example "G  Pick up weapon"); empty hides it.</summary>
+        public void SetPrompt(string text)
+        {
+            if (_prompt.text != text) _prompt.text = text ?? string.Empty;
+        }
+
         public void SetLatency(int milliseconds)
         {
             _latency.text = milliseconds >= 0 ? "Ping " + milliseconds + " ms" : string.Empty;

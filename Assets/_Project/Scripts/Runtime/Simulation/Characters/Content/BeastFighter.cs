@@ -18,6 +18,7 @@ namespace HEXBOUND.Simulation
                 Stance = FighterStance.Beast,
                 Description = "A huge armored gorilla that learns how you fight. Slow, no magic, crushing punches, and it awakens when hurt.",
                 Selectable = false,
+                CanThrowWeapon = false,
                 MaxHealth = 1300,
                 MaxMagic = 0,
                 Radius = ContentBuilder.M(750),

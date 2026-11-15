@@ -4,9 +4,23 @@ namespace HEXBOUND.Simulation
     {
         private static readonly Fix ChestRatio = Fix.Milli(550);
 
-        public static void Spawn(GameState s, int owner, ProjectileSpawn spawn, ref FighterState opponent, EventBuffer ev)
+        /// <summary>Converts the input's aim pitch steps into a simulation angle (+ is up), limited to 85 degrees either way.</summary>
+        public static int AimPitchAngle(sbyte steps)
         {
-            if (spawn.ProjectileId < 0 || spawn.ProjectileId >= GameContent.Projectiles.Length) return;
+            int angle = steps * FixMath.FullTurn * 3 / 720;
+            int limit = FixMath.FullTurn * 85 / 360;
+            if (angle > limit) angle = limit;
+            if (angle < -limit) angle = -limit;
+            return angle;
+        }
+
+        /// <summary>Aim assist: a crosshair shot this close (in angle) to the opponent's chest goes straight at it.</summary>
+        private static readonly int AimAssistAngle = FixMath.FullTurn * 7 / 360;
+
+        /// <summary>Spawns a projectile. Returns its slot, or -1 if none was free.</summary>
+        public static int Spawn(GameState s, int owner, ProjectileSpawn spawn, ref FighterState opponent, EventBuffer ev)
+        {
+            if (spawn.ProjectileId < 0 || spawn.ProjectileId >= GameContent.Projectiles.Length) return -1;
             ProjectileDef def = GameContent.Projectiles[spawn.ProjectileId];
 
             int slot = -1;
@@ -18,9 +32,10 @@ namespace HEXBOUND.Simulation
                     break;
                 }
             }
-            if (slot < 0) return;
+            if (slot < 0) return -1;
 
             ref FighterState f = ref s.Fighters[owner];
+            if (def.UseAim && f.HasAim) f.Facing = f.AimYaw << 8;
             int angle = FixMath.NormalizeAngle(f.Facing + spawn.AngleOffset);
             FixVec3 forward = FixVec3.FromAngle(angle);
             FixVec3 origin = f.Position + forward * def.SpawnForward + FixVec3.Up * def.SpawnUp;
@@ -38,6 +53,25 @@ namespace HEXBOUND.Simulation
                 target.Y = Fix.Zero;
                 origin = target + ring + FixVec3.Up * def.SpawnUp;
                 dir = new FixVec3(Fix.Zero, -Fix.One, Fix.Zero);
+            }
+            else if (def.UseAim && f.HasAim)
+            {
+                // Fly toward the crosshair: the camera's yaw and pitch.
+                int pitch = AimPitchAngle(f.AimPitch);
+                Fix flat = FixMath.Cos(pitch);
+                dir = new FixVec3(forward.X * flat, FixMath.Sin(pitch), forward.Z * flat);
+                if (opponent.Action != FighterAction.KO && opponent.Action != FighterAction.RingOut)
+                {
+                    CharacterDef oc = GameContent.GetCharacter(opponent.CharacterId);
+                    FixVec3 to = opponent.Position + FixVec3.Up * (oc.Height * ChestRatio) - origin;
+                    Fix len = to.Length();
+                    if (len > Fix.Zero && len <= GameConfig.SoftTargetRange * 4)
+                    {
+                        FixVec3 toDir = to / len;
+                        Fix dot = toDir.X * dir.X + toDir.Y * dir.Y + toDir.Z * dir.Z;
+                        if (dot >= FixMath.Cos(AimAssistAngle)) dir = toDir;
+                    }
+                }
             }
             else if (def.AimAtTarget && opponent.Action != FighterAction.KO && opponent.Action != FighterAction.RingOut)
             {
@@ -63,7 +97,9 @@ namespace HEXBOUND.Simulation
             p.TicksLeft = def.Lifetime;
             p.SerialId = s.NextProjectileSerial++;
             p.Exploding = false;
+            p.Carries = 0;
             if (ev != null) ev.Add(s.Tick, SimEventType.ProjectileSpawn, owner, def.Id, origin);
+            return slot;
         }
 
         /// <summary>Marks the projectile's blast for this tick (CombatResolver hits the opponent if inside the radius).</summary>

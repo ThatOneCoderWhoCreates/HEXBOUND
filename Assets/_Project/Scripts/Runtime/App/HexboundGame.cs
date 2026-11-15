@@ -546,9 +546,51 @@ namespace HEXBOUND.App
             }
         }
 
+        /// <summary>Crosshair for an armed gunner (where the shot will go) and the "pick up weapon" hint.</summary>
+        private void UpdateAimHud(GameState state)
+        {
+            FighterView me = _presenter.Fighters[_localIndex];
+            if (me == null || state == null)
+            {
+                _hud.SetCrosshair(false, Vector2.zero, false);
+                _hud.SetPrompt(string.Empty);
+                return;
+            }
+            ref FighterState f = ref state.Fighters[_localIndex];
+            CharacterDef c = GameContent.GetCharacter(f.CharacterId);
+            bool aiming = c.Stance == FighterStance.Gunner && FighterLogic.IsArmed(ref f, c) && f.Action != FighterAction.RingOut && f.Action != FighterAction.KO;
+            if (aiming && !_paused && !_resultsShown)
+            {
+                float yaw, pitch;
+                LocalInputReader.AimFromCamera(_camera.Yaw, _camera.Pitch, out yaw, out pitch);
+                Vector3 dir = Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
+                Vector3 muzzle = me.Position + Vector3.up * 1.45f;
+                FighterView opp = _presenter.Fighters[1 - _localIndex];
+                bool onTarget = false;
+                float distance = 30f;
+                if (opp != null)
+                {
+                    Vector3 to = opp.Chest - muzzle;
+                    if (to.magnitude <= GameConfig.SoftTargetRange.ToFloat() * 4f && Vector3.Angle(dir, to) <= 7f)
+                    {
+                        onTarget = true;
+                        dir = to.normalized;
+                        distance = to.magnitude;
+                    }
+                }
+                Vector3 screen = _camera.Camera.WorldToScreenPoint(muzzle + dir * distance);
+                _hud.SetCrosshair(screen.z > 0f, new Vector2(screen.x, screen.y), onTarget);
+            }
+            else
+            {
+                _hud.SetCrosshair(false, Vector2.zero, false);
+            }
+            _hud.SetPrompt(me.CanPickUp && f.Grounded ? "G   Pick up weapon" : string.Empty);
+        }
+
         private InputFrame SampleLocal()
         {
-            return _input.Sample(_camera.Camera.transform.eulerAngles.y);
+            return _input.Sample(_camera.Yaw, _camera.Pitch);
         }
 
         // ---------------------------------------------------------------- Online
@@ -710,6 +752,7 @@ namespace HEXBOUND.App
             GameState shownState = CurrentState;
             int map = _screen == ScreenId.Match && shownState != null ? shownState.Setup.Map : (IsOnline && _net != null && !_net.IsHost ? _arena.Map : GameSettings.Map);
             if (_arena.SetMap(map)) ApplyArenaCamera();
+            _music.SetMap(map);
             _arena.SyncPillars(_screen == ScreenId.Match ? shownState : null);
             _arena.Update((float)dt);
             _music.SetMood(_screen == ScreenId.Match ? MusicMood.Match : (_screen == ScreenId.Menu ? MusicMood.Menu : MusicMood.Lobby));
@@ -724,6 +767,7 @@ namespace HEXBOUND.App
                 events.Clear();
                 _hud.Update(state, _localIndex, _camera.Camera, NetInfo(), TrainingInfo(), (float)dt);
                 _hud.SetLatency(IsOnline && _net != null ? Mathf.RoundToInt((float)_net.RttMs) : -1);
+                UpdateAimHud(state);
 
                 if (state.Phase == MatchPhase.MatchOver && state.PhaseTicks > 90 && !_resultsShown) ShowResults(state);
             }

@@ -70,24 +70,27 @@ namespace HEXBOUND.UI
             "A skeleton was added so it can be animated.\n\n" +
             "<b>5. Bram, the Dragon Mage, and his staff</b>\n" +
             "Models by Pixtel Studios, made with Modly.\n" +
+            "A skeleton was added so it can be animated.\n\n" +
+            "<b>6. Vex, her launcher, rocket and pistol</b>\n" +
+            "Models by Pixtel Studios, made with Modly.\n" +
             "A skeleton was added so it can be animated.";
 
         private const string EnvironmentText =
             "<b>ENVIRONMENT</b>\n\n" +
-            "<b>6. Floating Island With Roots And Rocks</b>\n" +
+            "<b>7. Floating Island With Roots And Rocks</b>\n" +
             "Creator: Dennis\n" +
             "Source: https://skfb.ly/pFGQN\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
-            "<b>7. Low Poly Lava Fighting Arena/Stage</b>\n" +
+            "<b>8. Low Poly Lava Fighting Arena/Stage</b>\n" +
             "Creator: Umar\n" +
             "Source: https://skfb.ly/pzYyM\n" +
             "Licence: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
             "https://creativecommons.org/licenses/by/4.0/\n\n" +
-            "<b>8. Celestial Sanctuary map</b>\n" +
+            "<b>9. Celestial Sanctuary map</b>\n" +
             "Concept, layout and models by Pixtel Studios, models made with Modly.\n\n" +
             "<b>ANIMATIONS</b>\n\n" +
-            "<b>9. KinemIQ Animation Library</b>\n" +
+            "<b>10. KinemIQ Animation Library</b>\n" +
             "Source: https://kinemiq.app/\n" +
             "Licence: Depends on the individual animation used.\n" +
             "Attribution: Required for animations licensed under CC BY.\n" +

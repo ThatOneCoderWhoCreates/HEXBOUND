@@ -24,7 +24,18 @@ namespace HEXBOUND.Simulation
             f.Grounded = true;
             f.Health = c.MaxHealth;
             f.Magic = c.MaxMagic;
+            f.WeaponsHeld = (byte)c.WeaponMask;
         }
+
+        /// <summary>True when the fighter has the weapon of its current mode in hand (always true for fist fighters).</summary>
+        public static bool IsArmed(ref FighterState f, CharacterDef c)
+        {
+            if (!c.CanThrowWeapon) return true;
+            return (f.WeaponsHeld & (1 << f.WeaponMode)) != 0;
+        }
+
+        /// <summary>Speed multiplier for running and air control: faster with empty hands (less weight).</summary>
+        public static readonly Fix UnarmedSpeedScale = Fix.Milli(1200);
 
         public static bool IsFlying(ref FighterState f)
         {
@@ -88,7 +99,9 @@ namespace HEXBOUND.Simulation
         /// <summary>The fighter's movement speed multiplier from its ultimate buff (Twin Blades, Awakened).</summary>
         private static Fix SpeedScale(ref FighterState f, CharacterDef c)
         {
-            return f.Buff != BuffId.None && f.Buff == c.UltimateBuff ? c.BuffSpeedScale : Fix.One;
+            Fix scale = f.Buff != BuffId.None && f.Buff == c.UltimateBuff ? c.BuffSpeedScale : Fix.One;
+            if (!IsArmed(ref f, c)) scale = scale * UnarmedSpeedScale;
+            return scale;
         }
 
         public static void Step(GameState s, int index, InputFrame input, ref FighterState opponentAtStart, EventBuffer ev)
@@ -98,6 +111,9 @@ namespace HEXBOUND.Simulation
 
             InputButtons pressed = input.Buttons & ~f.PrevButtons;
             f.PrevButtons = input.Buttons;
+            f.HasAim = input.HasAim;
+            f.AimYaw = input.AimYaw;
+            f.AimPitch = input.AimPitch;
 
             if ((pressed & InputButtons.LockOn) != 0) f.LockOn = !f.LockOn;
             if (f.LockOn)
@@ -212,6 +228,7 @@ namespace HEXBOUND.Simulation
             if ((pressed & InputButtons.Jump) != 0) return InputButtons.Jump;
             if ((pressed & InputButtons.Recharge) != 0) return InputButtons.Recharge;
             if ((pressed & InputButtons.Heal) != 0) return InputButtons.Heal;
+            if ((pressed & InputButtons.Throw) != 0) return InputButtons.Throw;
             return InputButtons.None;
         }
 
@@ -305,7 +322,7 @@ namespace HEXBOUND.Simulation
                 return;
             }
 
-            bool blockHeld = input.Held(InputButtons.Block) || (c.HeavyIsGuard && input.Held(InputButtons.Heavy));
+            bool blockHeld = input.Held(InputButtons.Block) || (c.HeavyIsGuard && IsArmed(ref f, c) && input.Held(InputButtons.Heavy));
             if (blockHeld && !crouchHeld)
             {
                 if (f.Action != FighterAction.Block)
@@ -366,7 +383,7 @@ namespace HEXBOUND.Simulation
             }
             else if (input.HasMove)
             {
-                FixVec3 target = FixVec3.FromAngle(input.MoveAngleFull) * c.AirSpeed;
+                FixVec3 target = FixVec3.FromAngle(input.MoveAngleFull) * (c.AirSpeed * (IsArmed(ref f, c) ? Fix.One : UnarmedSpeedScale));
                 f.Velocity.X = f.Velocity.X + (target.X - f.Velocity.X) * AirControl;
                 f.Velocity.Z = f.Velocity.Z + (target.Z - f.Velocity.Z) * AirControl;
             }
@@ -416,7 +433,7 @@ namespace HEXBOUND.Simulation
                 f.BlockTicks = GameConfig.ParryWindow + 1;
                 return;
             }
-            if (previous == FighterAction.BlockStun && (input.Held(InputButtons.Block) || (c.HeavyIsGuard && input.Held(InputButtons.Heavy))))
+            if (previous == FighterAction.BlockStun && (input.Held(InputButtons.Block) || (c.HeavyIsGuard && IsArmed(ref f, c) && input.Held(InputButtons.Heavy))))
             {
                 SetAction(ref f, FighterAction.Block);
                 // Returning to block after blockstun does not open a new parry window.
@@ -437,6 +454,7 @@ namespace HEXBOUND.Simulation
             bool air = !f.Grounded || flying;
             bool buffed = f.Buff != BuffId.None && f.Buff == c.UltimateBuff;
             bool alt = f.WeaponMode == 1 && c.SecondaryWeapon != null;
+            bool armed = IsArmed(ref f, c);
             MoveDef move = null;
             int comboStep = 0;
 
@@ -464,8 +482,26 @@ namespace HEXBOUND.Simulation
                     if (air) return false;
                     move = c.Grab;
                     break;
+                case InputButtons.Throw:
+                    if (TryPickUp(s, index, ref f, c, ev))
+                    {
+                        ConsumeBuffer(ref f);
+                        return false;
+                    }
+                    if (!armed || !c.CanThrowWeapon)
+                    {
+                        ConsumeBuffer(ref f);
+                        return false;
+                    }
+                    move = f.WeaponMode == 1 ? c.ThrowSecondary : c.ThrowPrimary;
+                    break;
                 case InputButtons.Heavy:
-                    if (!air && input.Held(InputButtons.Crouch) && c.CrouchGuardMove != null)
+                    if (!armed && !(input.Held(InputButtons.Crouch) && !air && c.CrouchAttack != null))
+                    {
+                        move = air ? c.FistAirHeavy : c.FistHeavy;
+                        break;
+                    }
+                    if (!air && input.Held(InputButtons.Crouch) && c.CrouchGuardMove != null && armed)
                     {
                         move = c.CrouchGuardMove;
                         break;
@@ -488,7 +524,11 @@ namespace HEXBOUND.Simulation
                 case InputButtons.Light:
                     if (!air && input.Held(InputButtons.Crouch) && c.CrouchAttack != null)
                     {
-                        move = c.CrouchAttack;
+                        move = armed ? c.CrouchAttack : c.FistCrouchAttack;
+                    }
+                    else if (air && !armed)
+                    {
+                        move = c.FistAirLight;
                     }
                     else if (air)
                     {
@@ -496,7 +536,7 @@ namespace HEXBOUND.Simulation
                     }
                     else
                     {
-                        MoveDef[] chain = alt && c.AltLightChain != null ? c.AltLightChain : (buffed && c.BuffLightChain != null ? c.BuffLightChain : c.LightChain);
+                        MoveDef[] chain = !armed ? c.FistChain : (alt && c.AltLightChain != null ? c.AltLightChain : (buffed && c.BuffLightChain != null ? c.BuffLightChain : c.LightChain));
                         if (fromCancel && f.Action == FighterAction.Attack && f.ComboStep < chain.Length && chain[f.ComboStep].Id == f.MoveId)
                         {
                             comboStep = f.ComboStep + 1;
@@ -720,7 +760,10 @@ namespace HEXBOUND.Simulation
 
             for (int i = 0; i < m.Spawns.Length; i++)
             {
-                if (m.Spawns[i].Tick == t) ProjectileLogic.Spawn(s, index, m.Spawns[i], ref opp, ev);
+                if (m.Spawns[i].Tick != t) continue;
+                int slot = ProjectileLogic.Spawn(s, index, m.Spawns[i], ref opp, ev);
+                if (m.ThrowsWeapon) ReleaseThrownWeapon(s, index, ref f, c, slot, ev);
+                else if (slot >= 0 && ApplyRecoil(s, index, ref f, slot, ev)) return;
             }
 
             if (m.CancelStart >= 0 && t >= m.CancelStart && t <= m.CancelEnd)
@@ -729,9 +772,142 @@ namespace HEXBOUND.Simulation
             }
         }
 
+        /// <summary>The thrown weapon leaves the hand: it flies as the projectile in the slot; Vex switches to her other weapon if she still has it.</summary>
+        private static void ReleaseThrownWeapon(GameState s, int index, ref FighterState f, CharacterDef c, int slot, EventBuffer ev)
+        {
+            int bit = 1 << f.WeaponMode;
+            if ((f.WeaponsHeld & bit) == 0) return;
+            f.WeaponsHeld = (byte)(f.WeaponsHeld & ~bit);
+            if (slot >= 0)
+            {
+                s.Projectiles[slot].Carries = (byte)(f.WeaponMode + 1);
+                f.WeaponsThrown = (byte)(f.WeaponsThrown | bit);
+                SetDropPos(ref f, f.WeaponMode, s.Projectiles[slot].Position);
+            }
+            else
+            {
+                // No free projectile slot: the weapon just drops at the fighter's feet.
+                f.WeaponsDropped = (byte)(f.WeaponsDropped | bit);
+                SetDropPos(ref f, f.WeaponMode, new FixVec3(f.Position.X, Fix.Zero, f.Position.Z));
+            }
+            int other = 1 - f.WeaponMode;
+            if (c.SecondaryWeapon != null && (f.WeaponsHeld & (1 << other)) != 0)
+            {
+                f.WeaponMode = (byte)other;
+                if (ev != null) ev.Add(s.Tick, SimEventType.WeaponSwitch, index, f.WeaponMode, f.Position);
+            }
+            if (ev != null) ev.Add(s.Tick, SimEventType.WeaponThrow, index, bit, f.Position);
+        }
+
+        private static void SetDropPos(ref FighterState f, int weapon, FixVec3 p)
+        {
+            if (weapon == 0) f.DropPos0 = p;
+            else f.DropPos1 = p;
+        }
+
+        private static FixVec3 GetDropPos(ref FighterState f, int weapon)
+        {
+            return weapon == 0 ? f.DropPos0 : f.DropPos1;
+        }
+
+        /// <summary>Range within which G picks up your own weapon from the floor.</summary>
+        public static readonly Fix PickUpRange = Fix.Milli(1800);
+
+        /// <summary>G next to your own dropped weapon picks it up (and puts it in hand).</summary>
+        private static bool TryPickUp(GameState s, int index, ref FighterState f, CharacterDef c, EventBuffer ev)
+        {
+            if (f.WeaponsDropped == 0 || !f.Grounded) return false;
+            for (int w = 0; w < 2; w++)
+            {
+                int bit = 1 << w;
+                if ((f.WeaponsDropped & bit) == 0) continue;
+                FixVec3 d = (GetDropPos(ref f, w) - f.Position).Horizontal();
+                if (d.LengthSquared() > PickUpRange * PickUpRange) continue;
+                f.WeaponsDropped = (byte)(f.WeaponsDropped & ~bit);
+                f.WeaponsHeld = (byte)(f.WeaponsHeld | bit);
+                if (f.WeaponMode != w && c.SecondaryWeapon != null)
+                {
+                    f.WeaponMode = (byte)w;
+                    if (ev != null) ev.Add(s.Tick, SimEventType.WeaponSwitch, index, f.WeaponMode, f.Position);
+                }
+                if (ev != null) ev.Add(s.Tick, SimEventType.WeaponPickup, index, bit, f.Position);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// After the projectiles moved: thrown weapons that stopped flying land where they were last seen, if that is
+        /// over the floor; otherwise they are lost for the rest of the round.
+        /// </summary>
+        public static void UpdateThrownWeapons(GameState s, EventBuffer ev)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                ref FighterState f = ref s.Fighters[i];
+                if (f.WeaponsThrown == 0) continue;
+                for (int w = 0; w < 2; w++)
+                {
+                    int bit = 1 << w;
+                    if ((f.WeaponsThrown & bit) == 0) continue;
+                    bool flying = false;
+                    for (int k = 0; k < s.Projectiles.Length; k++)
+                    {
+                        ref ProjectileState p = ref s.Projectiles[k];
+                        if (!p.Active || p.Owner != i || p.Carries != w + 1) continue;
+                        flying = true;
+                        SetDropPos(ref f, w, p.Position);
+                    }
+                    if (flying) continue;
+                    f.WeaponsThrown = (byte)(f.WeaponsThrown & ~bit);
+                    FixVec3 at = GetDropPos(ref f, w);
+                    if (Arena.IsInside(at, Fix.Milli(300)) && at.Y > GameConfig.RingOutHeight)
+                    {
+                        at = Arena.ClampInside(new FixVec3(at.X, Fix.Zero, at.Z), Fix.Milli(400));
+                        SetDropPos(ref f, w, at);
+                        f.WeaponsDropped = (byte)(f.WeaponsDropped | bit);
+                        if (ev != null) ev.Add(s.Tick, SimEventType.WeaponDrop, i, bit, at);
+                    }
+                    else if (ev != null)
+                    {
+                        ev.Add(s.Tick, SimEventType.WeaponLost, i, bit, at);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Most recoil boosts from downward shots before landing again.</summary>
+        public const int MaxRecoilJumps = 2;
+
+        /// <summary>
+        /// A crosshair-aimed shot fired steeply downward pushes the shooter up (and a little back): a rocket jump.
+        /// Returns true if the shooter was thrown into the air (the move ends).
+        /// </summary>
+        private static bool ApplyRecoil(GameState s, int index, ref FighterState f, int slot, EventBuffer ev)
+        {
+            ProjectileDef def = GameContent.Projectiles[s.Projectiles[slot].DefId];
+            if (!def.UseAim || def.RecoilLift <= Fix.Zero || !f.HasAim) return false;
+            int pitch = ProjectileLogic.AimPitchAngle(f.AimPitch);
+            if (pitch > -FixMath.FullTurn * 35 / 360) return false;
+            if (!f.Grounded && f.RecoilJumps >= MaxRecoilJumps) return false;
+            Fix down = -FixMath.Sin(pitch);
+            Fix lift = def.RecoilLift * down;
+            if (f.Velocity.Y < lift) f.Velocity.Y = lift;
+            FixVec3 back = FixVec3.FromAngle(f.AimYaw << 8) * (def.RecoilLift * FixMath.Cos(pitch) * Fix.Milli(400));
+            f.Velocity.X = f.Velocity.X - back.X;
+            f.Velocity.Z = f.Velocity.Z - back.Z;
+            f.Grounded = false;
+            f.RecoilJumps++;
+            f.MoveId = -1;
+            f.MoveTick = 0;
+            SetAction(ref f, FighterAction.Air);
+            if (ev != null) ev.Add(s.Tick, SimEventType.RecoilJump, index, 0, f.Position);
+            return true;
+        }
+
         private static bool IsChainMove(CharacterDef c, int moveId)
         {
-            MoveDef[][] chains = { c.LightChain, c.BuffLightChain, c.AltLightChain };
+            MoveDef[][] chains = { c.LightChain, c.BuffLightChain, c.AltLightChain, c.FistChain };
             foreach (MoveDef[] chain in chains)
             {
                 if (chain == null) continue;
@@ -794,6 +970,25 @@ namespace HEXBOUND.Simulation
                 next.X = clamped.X;
                 next.Z = clamped.Z;
             }
+            else if (wasInside && f.Action != FighterAction.RingOut && Arena.IsWallAt(next) && !Arena.IsInside(next, EdgeMargin))
+            {
+                // Invisible wall (for example the Sanctuary stairs): stop at the edge and lose the outward speed.
+                FixVec3 clamped = Arena.ClampInside(next, EdgeMargin);
+                next.X = clamped.X;
+                next.Z = clamped.Z;
+                FixVec3 outward = clamped.Horizontal();
+                Fix len = outward.HorizontalLength();
+                if (len > Fix.Zero)
+                {
+                    outward = outward / len;
+                    Fix speedOut = f.Velocity.X * outward.X + f.Velocity.Z * outward.Z;
+                    if (speedOut > Fix.Zero)
+                    {
+                        f.Velocity.X = f.Velocity.X - outward.X * speedOut;
+                        f.Velocity.Z = f.Velocity.Z - outward.Z * speedOut;
+                    }
+                }
+            }
 
             bool inside = Arena.IsInside(next);
             bool wasGrounded = f.Grounded;
@@ -803,6 +998,7 @@ namespace HEXBOUND.Simulation
                 f.Velocity.Y = Fix.Zero;
                 f.Grounded = true;
                 f.AirDashUsed = false;
+                f.RecoilJumps = 0;
                 if (!wasGrounded) OnLand(s, index, ref f, ev);
             }
             else
@@ -895,8 +1091,8 @@ namespace HEXBOUND.Simulation
             a.Position = a.Position - dir * push;
             b.Position = b.Position + dir * push;
 
-            if (IsVoluntary(a.Action) && Arena.IsInside(aBefore) && !Arena.IsInside(a.Position, EdgeMargin)) a.Position = Arena.ClampInside(a.Position, EdgeMargin);
-            if (IsVoluntary(b.Action) && Arena.IsInside(bBefore) && !Arena.IsInside(b.Position, EdgeMargin)) b.Position = Arena.ClampInside(b.Position, EdgeMargin);
+            if ((IsVoluntary(a.Action) || Arena.IsWallAt(a.Position)) && Arena.IsInside(aBefore) && !Arena.IsInside(a.Position, EdgeMargin)) a.Position = Arena.ClampInside(a.Position, EdgeMargin);
+            if ((IsVoluntary(b.Action) || Arena.IsWallAt(b.Position)) && Arena.IsInside(bBefore) && !Arena.IsInside(b.Position, EdgeMargin)) b.Position = Arena.ClampInside(b.Position, EdgeMargin);
             BlockByPillars(ref a, ca);
             BlockByPillars(ref b, cb);
         }

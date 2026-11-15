@@ -50,6 +50,7 @@ namespace HEXBOUND.Simulation
             FighterLogic.Separate(s);
             ProjectileLogic.Step(s, ev);
             CombatResolver.Resolve(s, ev);
+            FighterLogic.UpdateThrownWeapons(s, ev);
             MatchLogic.PostStep(s, ev);
         }
 

@@ -898,12 +898,22 @@ namespace HEXBOUND.Presentation
             var banks = new GameObject("Cloud Banks").transform;
             banks.SetParent(_mapRoot.transform, false);
             banks.localPosition = new Vector3(0f, -4f, 0f);
-            ParticleSystem bankPs = CloudPuffs(banks, new Color(1f, 0.9f, 0.96f, 0.4f), Vector3.zero, 45f, 95f, 80f, 120f, ParticleSystemRenderMode.Billboard, 120);
+            ParticleSystem bankPs = CloudPuffs(banks, new Color(1f, 0.9f, 0.96f, 0.35f), Vector3.one, 45f, 95f, 80f, 120f, ParticleSystemRenderMode.Billboard, 120);
             ParticleSystem.ShapeModule shape = bankPs.shape;
             shape.shapeType = ParticleSystemShapeType.Circle;
+            // The shape's scale must stay 1: a zero scale put every bank at the arena center as a pink wall.
+            shape.scale = Vector3.one;
             shape.radius = 230f;
             shape.radiusThickness = 0.3f;
             shape.rotation = new Vector3(90f, 0f, 0f);
+            ParticleSystem.VelocityOverLifetimeModule bankDrift = bankPs.velocityOverLifetime;
+            bankDrift.x = new ParticleSystem.MinMaxCurve(-0.2f, 0.2f);
+            bankDrift.z = new ParticleSystem.MinMaxCurve(-0.2f, 0.2f);
+            // CloudPuffs already started (and prewarmed) the system with its box shape, which filled the arena with
+            // long-lived clouds. Clear them and start again so the prewarm uses the far ring.
+            bankPs.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            bankPs.Clear(true);
+            bankPs.Play(true);
 
             // A plain floor far below so nothing shows through the gaps between clouds.
             GameObject below = MaterialFactory.Primitive(PrimitiveType.Quad, _mapRoot.transform, MaterialFactory.Glow(new Color(0.78f, 0.67f, 0.86f)), "Cloud Floor");

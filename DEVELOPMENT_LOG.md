@@ -4,6 +4,70 @@ Newest entries first. Each entry: date, summary, files touched, decisions, open 
 
 ---
 
+## 2026-11-15: Weapon throw (G), fists, Vex aiming and models, stairs wall, sounds
+
+### Request (Tanmay)
+G throws the equipped weapon; without a weapon everyone punches (less damage) and runs faster. Vex: models for her, the launcher, the rocket and the pistol (equip as in Docs/Concepts/vex_reference.png); a crosshair to aim rockets (a little slower than the pistol); shooting down pushes her up with recoil; good sounds. Stream quieter and more soothing. Bug: thrown toward the Sanctuary stairs, fighters fell off the map; make it an invisible wall.
+
+### Changes
+- Input: InputButtons.Throw (G, gamepad Select); InputFrame carries camera aim (AimYaw, AimPitch in 1.5 degree steps, HasAim) and packs into 64 bits; RollbackSession sends ulongs; protocol version 4.
+- Simulation: FighterState WeaponsHeld/Thrown/Dropped, DropPos0/1, aim fields, RecoilJumps; ProjectileState.Carries. Throw moves and thrown-weapon projectiles built per fighter in GameContent (CharacterDef.CanThrowWeapon, ThrowDamage). FighterLogic: TryPickUp, ReleaseThrownWeapon, UpdateThrownWeapons (after combat each tick), fist moves when unarmed (CommonMoves), UnarmedSpeedScale 1.2, ApplyRecoil. ProjectileLogic.Spawn returns the slot; ProjectileDef.UseAim (crosshair with 7 degree aim assist) and RecoilLift. Vex rockets 0.7 units/tick. Arena wall arcs (Sanctuary: 20 degrees either side of north).
+- Presentation: FighterVisual.HeldWeapon/WeaponTemplate; Kael's sword hidden by swapping its submesh material; Lyra gets a visible wand; Bram's staff; Vex launcher holder (shoulder or back) and pistol holder placed by the animator. Thrown weapons spin along their flight; dropped weapons lie on a pulsing glow ring; HUD prompt "G Pick up weapon". Throw pose. Rocket model for missiles. Crosshair in MatchHud for an armed gunner.
+- Models: Resources/Fighters/Launcher.glb (Vex, rigged, 55k triangles, texture baked into vertex colors), VexLauncher, VexPistol, VexRocket (Tools/VexRig, Tools/ModlyPrep).
+- Sounds: wx_rocket, wx_pistol, wx_throw, wx_weapondrop, wx_pickup; gun moves no longer play a sword whoosh. Stream regenerated darker and calmer, 6 dB quieter in the file and played at 0.14 (was 0.32).
+
+### Tests
+rostertest: throw and hit (55), lands on the floor, unarmed jab 18, unarmed run 7.56 m vs 6.30 m per second, pickup, Rook cannot throw, Vex launcher then pistol, rocket follows the crosshair, down-shot recoil 4.6 m without self-damage, stairs wall holds while the east bridge still rings out, aim packs and unpacks. nettest (online, Sanctuary): no desync. All suites pass.
+
+### Open issues
+- Vex's shoulder pose and the weapon placement were set from measurements of her skeleton, not seen in Unity; expect small adjustments.
+- Bots never throw weapons.
+
+---
+
+## 2026-11-15: Cloud wall fix, part 2
+
+### Problem
+The pink haze was still there after the first fix.
+
+### Cause and fix
+CloudPuffs starts the particle system with prewarm on, so the far cloud banks were already simulated (about 120 clouds living 80 to 120 seconds) with the temporary box shape at the arena center before the ring shape was set. The banks are now cleared and restarted after the ring shape is applied.
+
+---
+
+## 2026-11-15: Battle sound set (replaces the silly synth tones)
+
+### Request (Tanmay)
+Sounds feel silly (the bouncy sound at the round start and so on); make them professional and battle-like.
+
+### Changes
+- New sound set, designed for the game (Tools/BattleSfx/sfx.py), 3 variants each, in Resources/Audio/SFX as wx_*.wav:
+  round start/fight/end = war drum with a low gong (was a rising sine "boing"); weapon whooshes (light and heavy), dodge and jump air; parry = steel ring (was a bell); clash and guard break = metal and a heavy crack (were glass); projectile hit; explosion; cast, magic, teleport, power-up and KO rebuilt from filtered noise, low booms and soft shimmer instead of sine sweeps.
+- SfxPlayer.PackMap points these sounds to the new files. Punches, blocks, landings, footsteps and UI clicks keep the Kenney recordings.
+
+---
+
+## 2026-11-15: Sanctuary ambience (stream and birds instead of lava)
+
+### Request (Tanmay)
+No lava sounds on the Celestial Sanctuary; a little nature sound instead, like flowing water at low volume, and birds chirping now and then, not all the time and not loud.
+
+### Changes
+- MusicPlayer.SetMap(map): in a match, the Lava Pit keeps the lava and fire layers; the Sanctuary plays only a soft stream loop (Resources/Audio/Ambience/stream.wav, volume 0.32 of a -24 dB file) and, every 14 to 40 seconds, one quiet bird call (bird_1 to bird_5, volume 0.06 to 0.11, slight pitch and left-right variation, 30% chance of a second call).
+- Sounds are synthesized (Tools/AmbienceSynth/synth.py), so there are no third-party audio credits.
+
+---
+
+## 2026-11-15: Fix pink cloud wall inside the Sanctuary
+
+### Problem (Tanmay, screenshots)
+A thick pink haze covered the arena; the far side could not be seen.
+
+### Cause and fix
+The far cloud banks used a circle emitter whose shape scale was left at zero (set by the shared CloudPuffs helper), so every bank cloud (45 to 95 m wide) spawned at the arena center. The scale is now 1, so they spawn 160 to 230 m out, with slower drift and a little less opacity.
+
+---
+
 ## 2026-11-15: Breakable crystal pillars
 
 ### Request (Tanmay)

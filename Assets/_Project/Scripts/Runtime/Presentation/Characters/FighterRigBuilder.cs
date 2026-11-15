@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HEXBOUND.Simulation;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -27,6 +28,18 @@ namespace HEXBOUND.Presentation
         public TrailRenderer TrailL;
         /// <summary>Staff: the holder in the right hand; the animator turns it each frame so the staff points where the pose wants.</summary>
         public Transform WeaponHolder;
+
+        /// <summary>What shows while each weapon (0 primary, 1 secondary) is in hand; hidden after it is thrown.</summary>
+        public GameObject[] HeldWeapon = new GameObject[2];
+        /// <summary>Inactive copies of each weapon, cloned for a thrown (spinning) or dropped (lying) weapon.</summary>
+        public GameObject[] WeaponTemplate = new GameObject[2];
+        /// <summary>Sword built into the character mesh: the skinned renderer and its materials with and without the blade.</summary>
+        public SkinnedMeshRenderer WeaponSkin;
+        public Material[] ArmedMaterials;
+        public Material[] UnarmedMaterials;
+        /// <summary>Vex: the launcher (on the shoulder or slung on the back) and the pistol (in the right hand), placed by the animator.</summary>
+        public Transform LauncherHolder;
+        public Transform PistolHolder;
         /// <summary>Beast: fire blasting from the shoulder exhausts while it is awakened.</summary>
         public GameObject ExhaustFire;
         public Renderer[] Renderers;
@@ -70,6 +83,7 @@ namespace HEXBOUND.Presentation
             }
 
             BuildExtras(visual, character, accentHdr, playerIndex);
+            SetupWeaponVisuals(visual, character, accentHdr, parent);
             visual.Renderers = root.GetComponentsInChildren<Renderer>(true);
             return visual;
         }
@@ -399,6 +413,214 @@ namespace HEXBOUND.Presentation
             return StaffWorldLength * (1f - StaffGrip) * 0.95f;
         }
 
+        // ------------------------------------------------------------------ Weapons in hand, thrown and dropped
+
+        /// <summary>Lengths of the Vex weapon models in meters.</summary>
+        public const float LauncherLength = 1.25f;
+        public const float PistolLength = 0.25f;
+        public const float RocketLength = 0.6f;
+        /// <summary>The launcher sits this far forward of its holder, so the shoulder is near its rear and the rear grip is in front of the chest.</summary>
+        public const float LauncherForwardOffset = 0.47f;
+
+        private static void SetupWeaponVisuals(FighterVisual visual, CharacterDef character, Color accentHdr, Transform sceneParent)
+        {
+            if (!character.CanThrowWeapon || visual.Rig == null) return;
+            PoseRig rig = visual.Rig;
+            var templates = new GameObject("Weapon Templates").transform;
+            templates.SetParent(visual.Root, false);
+            templates.gameObject.SetActive(false);
+
+            if (character.Weapon == "Sword")
+            {
+                // The sword is part of the character mesh (material "...weapon"): hide it by swapping in an invisible material.
+                foreach (SkinnedMeshRenderer smr in visual.Body.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    Material[] mats = smr.sharedMaterials;
+                    for (int i = 0; i < mats.Length; i++)
+                    {
+                        if (mats[i] == null || mats[i].name.IndexOf("weapon", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                        visual.WeaponSkin = smr;
+                        visual.ArmedMaterials = mats;
+                        visual.UnarmedMaterials = (Material[])mats.Clone();
+                        visual.UnarmedMaterials[i] = MaterialFactory.Additive(Color.clear);
+                        visual.WeaponTemplate[0] = ExtractSubmesh(smr, i, mats[i], templates);
+                        break;
+                    }
+                    if (visual.WeaponSkin != null) break;
+                }
+            }
+            else if (character.Weapon == "Staff" && visual.WeaponHolder != null)
+            {
+                visual.HeldWeapon[0] = visual.WeaponHolder.gameObject;
+                GameObject prefab = Resources.Load<GameObject>("Fighters/" + character.WeaponModel);
+                if (prefab != null) visual.WeaponTemplate[0] = Template(prefab, templates, StaffWorldLength);
+            }
+            else if (character.Weapon == "Wand" && rig.HandR != null && rig.ForeArmR != null)
+            {
+                // A short dark wand with a glowing tip, held along the forearm.
+                var wand = new GameObject("Wand").transform;
+                wand.SetParent(rig.HandR, false);
+                Vector3 along = rig.HandR.InverseTransformDirection((rig.HandR.position - rig.ForeArmR.position).normalized);
+                float lossy = Mathf.Max(rig.HandR.lossyScale.x, 1e-4f);
+                wand.localRotation = Quaternion.FromToRotation(Vector3.up, along);
+                wand.localScale = Vector3.one / lossy;
+                BuildWand(wand, accentHdr);
+                visual.HeldWeapon[0] = wand.gameObject;
+                var t = new GameObject("Wand Template").transform;
+                t.SetParent(templates, false);
+                BuildWand(t, accentHdr);
+                visual.WeaponTemplate[0] = t.gameObject;
+            }
+            else if (character.Weapon == "Launcher")
+            {
+                GameObject launcher = Resources.Load<GameObject>("Fighters/VexLauncher");
+                GameObject pistol = Resources.Load<GameObject>("Fighters/VexPistol");
+                if (launcher != null && pistol != null && rig.Chest != null && rig.HandR != null)
+                {
+                    // Model axes after import: launcher muzzle +X, pistol muzzle -X; both with their top along +Y.
+                    visual.LauncherHolder = Holder(launcher, rig.Chest, "Launcher Holder", LauncherLength, Quaternion.FromToRotation(Vector3.right, Vector3.forward), new Vector3(0f, 0f, LauncherForwardOffset));
+                    visual.PistolHolder = Holder(pistol, rig.HandR, "Pistol Holder", PistolLength, Quaternion.FromToRotation(Vector3.left, Vector3.forward), new Vector3(0f, 0.05f, 0.05f));
+                    visual.HeldWeapon[0] = visual.LauncherHolder.gameObject;
+                    visual.HeldWeapon[1] = visual.PistolHolder.gameObject;
+                    visual.WeaponTemplate[0] = Template(launcher, templates, LauncherLength);
+                    visual.WeaponTemplate[1] = Template(pistol, templates, PistolLength);
+                }
+                else
+                {
+                    visual.HeldWeapon[0] = visual.PrimaryProp;
+                    visual.HeldWeapon[1] = visual.SecondaryProp;
+                    if (visual.PrimaryProp != null) visual.WeaponTemplate[0] = CloneTemplate(visual.PrimaryProp, templates);
+                    if (visual.SecondaryProp != null) visual.WeaponTemplate[1] = CloneTemplate(visual.SecondaryProp, templates);
+                }
+            }
+        }
+
+        private static void BuildWand(Transform parent, Color accentHdr)
+        {
+            GameObject stick = MaterialFactory.Primitive(PrimitiveType.Cylinder, parent, MaterialFactory.Lit(new Color(0.18f, 0.11f, 0.08f), 0.4f), "Stick");
+            stick.transform.localPosition = new Vector3(0f, 0.17f, 0f);
+            stick.transform.localScale = new Vector3(0.025f, 0.2f, 0.025f);
+            GameObject tip = MaterialFactory.Primitive(PrimitiveType.Sphere, parent, MaterialFactory.Glow(accentHdr), "Tip");
+            tip.transform.localPosition = new Vector3(0f, 0.38f, 0f);
+            tip.transform.localScale = Vector3.one * 0.05f;
+            tip.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+        }
+
+        /// <summary>A model scaled so its longest side is the given length, centered on its holder with an extra offset (meters, holder space).</summary>
+        private static Transform Holder(GameObject prefab, Transform bone, string name, float length, Quaternion modelRotation, Vector3 offset)
+        {
+            var holder = new GameObject(name).transform;
+            holder.SetParent(bone, false);
+            float lossy = Mathf.Max(bone.lossyScale.x, 1e-4f);
+            holder.localScale = Vector3.one / lossy;
+            GameObject model = Object.Instantiate(prefab, holder, false);
+            model.name = prefab.name;
+            foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+            model.transform.localRotation = modelRotation;
+            FitCentered(model.transform, holder, length);
+            model.transform.localPosition += offset;
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = ShadowCastingMode.On;
+            return holder;
+        }
+
+        private static GameObject Template(GameObject prefab, Transform parent, float length)
+        {
+            var holder = new GameObject(prefab.name + " Template").transform;
+            holder.SetParent(parent, false);
+            GameObject model = Object.Instantiate(prefab, holder, false);
+            foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+            FitCentered(model.transform, holder, length);
+            return holder.gameObject;
+        }
+
+        private static GameObject CloneTemplate(GameObject source, Transform parent)
+        {
+            GameObject copy = Object.Instantiate(source, parent, false);
+            copy.transform.localPosition = Vector3.zero;
+            copy.transform.localRotation = Quaternion.identity;
+            copy.transform.localScale = Vector3.one;
+            copy.SetActive(true);
+            return copy;
+        }
+
+        /// <summary>Scales a model so its longest side is the length (world meters) and centers it on the holder.</summary>
+        private static void FitCentered(Transform model, Transform holder, float length)
+        {
+            Bounds b;
+            if (!WorldBounds(model, out b)) return;
+            float largest = Mathf.Max(b.size.x, b.size.y, b.size.z);
+            model.localScale = model.localScale * (length / Mathf.Max(largest, 1e-4f));
+            WorldBounds(model, out b);
+            model.position += holder.position - b.center;
+        }
+
+        private static bool WorldBounds(Transform root, out Bounds bounds)
+        {
+            bounds = new Bounds();
+            bool any = false;
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!any)
+                {
+                    bounds = r.bounds;
+                    any = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(r.bounds);
+                }
+            }
+            return any;
+        }
+
+        /// <summary>Copies one submesh of a skinned mesh (in its rest pose) into a standalone, centered prop.</summary>
+        private static GameObject ExtractSubmesh(SkinnedMeshRenderer smr, int submesh, Material material, Transform parent)
+        {
+            var baked = new Mesh();
+            smr.BakeMesh(baked, true);
+            int[] tris = baked.GetTriangles(submesh);
+            Vector3[] verts = baked.vertices;
+            Vector3[] normals = baked.normals;
+            Vector2[] uvs = baked.uv;
+            var map = new Dictionary<int, int>();
+            var v = new List<Vector3>();
+            var n = new List<Vector3>();
+            var uv = new List<Vector2>();
+            var t = new List<int>();
+            for (int i = 0; i < tris.Length; i++)
+            {
+                int old = tris[i];
+                int idx;
+                if (!map.TryGetValue(old, out idx))
+                {
+                    idx = v.Count;
+                    map[old] = idx;
+                    v.Add(smr.transform.TransformPoint(verts[old]));
+                    n.Add(normals.Length > old ? smr.transform.TransformDirection(normals[old]) : Vector3.up);
+                    uv.Add(uvs.Length > old ? uvs[old] : Vector2.zero);
+                }
+                t.Add(idx);
+            }
+            Object.Destroy(baked);
+            if (v.Count == 0) return null;
+            Vector3 center = Vector3.zero;
+            foreach (Vector3 p in v) center += p;
+            center /= v.Count;
+            for (int i = 0; i < v.Count; i++) v[i] -= center;
+            var mesh = new Mesh { name = "Weapon Prop" };
+            if (v.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.SetVertices(v);
+            mesh.SetNormals(n);
+            mesh.SetUVs(0, uv);
+            mesh.SetTriangles(t, 0);
+            mesh.RecalculateBounds();
+            var go = new GameObject("Sword Template");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = material;
+            return go;
+        }
+
         private static TrailRenderer MakeEndTrail(Transform holder, float worldOffset, Color accentHdr)
         {
             var go = new GameObject("Staff End Trail");
@@ -460,8 +682,9 @@ namespace HEXBOUND.Presentation
                 visual.OffhandBlade = blade;
             }
 
-            // Launcher and pistol, held in the right hand along the forearm.
-            if (character.SecondaryWeapon != null && rig.HandR != null && rig.ForeArmR != null)
+            // Launcher and pistol, held in the right hand along the forearm (placeholders when the Vex weapon models are missing).
+            bool gunModels = Resources.Load<GameObject>("Fighters/VexLauncher") != null && Resources.Load<GameObject>("Fighters/VexPistol") != null;
+            if (character.SecondaryWeapon != null && rig.HandR != null && rig.ForeArmR != null && !gunModels)
             {
                 Vector3 along = rig.HandR.InverseTransformDirection((rig.HandR.position - rig.ForeArmR.position).normalized);
                 float lossy = Mathf.Max(rig.HandR.lossyScale.x, 1e-4f);

@@ -66,6 +66,8 @@ namespace HEXBOUND.UI
                 "C + Left click  Low sweep (beats a standing block)\n" +
                 "C + Right click (hold)  Low guard (loses to overheads, air attacks, grabs)\n" +
                 "Mouse wheel  Switch weapon (Vex: launcher / pistol)\n" +
+                "G  Throw your weapon (it hits!) / pick it up again when next to it\n" +
+                "    Without a weapon you punch (weaker) but run 20% faster. Weapons return each round.\n" +
                 "Tab / Middle mouse  Lock-on\n" +
                 "Esc  Pause";
             string pad =

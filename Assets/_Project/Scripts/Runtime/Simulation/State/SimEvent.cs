@@ -35,6 +35,16 @@ namespace HEXBOUND.Simulation
         PillarHit,
         /// <summary>A breakable pillar broke and fell apart (Param = pillar index).</summary>
         PillarBreak,
+        /// <summary>A weapon was thrown (Param = weapon bit).</summary>
+        WeaponThrow,
+        /// <summary>A thrown weapon landed on the floor (Param = weapon bit).</summary>
+        WeaponDrop,
+        /// <summary>A thrown weapon fell off the arena; gone until the next round (Param = weapon bit).</summary>
+        WeaponLost,
+        /// <summary>A fighter picked up its weapon (Param = weapon bit).</summary>
+        WeaponPickup,
+        /// <summary>A downward shot pushed the shooter up.</summary>
+        RecoilJump,
     }
 
     /// <summary>Something that happened during a tick, for visuals and audio. Not part of the game state.</summary>

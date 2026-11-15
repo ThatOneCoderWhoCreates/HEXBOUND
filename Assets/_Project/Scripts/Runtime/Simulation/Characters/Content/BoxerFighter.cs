@@ -14,6 +14,7 @@ namespace HEXBOUND.Simulation
                 Weapon = "Fists",
                 ModelName = "Boxer",
                 Stance = FighterStance.Boxer,
+                CanThrowWeapon = false,
                 Description = "Fast boxer with short reach. Rushes in with quick punch strings and rapid barrages.",
                 MaxHealth = 1000,
                 MoveSpeed = ContentBuilder.M(122),
